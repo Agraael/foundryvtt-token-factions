@@ -1,0 +1,189 @@
+<form autocomplete="off">
+    <h2>Teams</h2>
+    <p class="notes">Define the teams available in your world.</p>
+    <div class="teams-list">
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Color (Int)</th>
+                    <th>Color (Ext)</th>
+                    <th>GM Disp</th>
+                    <th><a class="add-team"><i class="fas fa-plus"></i> Add</a></th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each teams}}
+                <tr>
+                    <td>
+                        <input type="hidden" name="teams.{{@index}}.id" value="{{this.id}}">
+                        <input type="text" name="teams.{{@index}}.name" value="{{this.name}}">
+                    </td>
+                    <td>
+                        <input type="color" name="teams.{{@index}}.color" value="{{this.color}}">
+                    </td>
+                    <td>
+                        <input type="color" name="teams.{{@index}}.colorEx" value="{{this.colorEx}}">
+                    </td>
+                    <td>
+                        <select name="teams.{{@index}}.gmDisposition" class="disposition-select"
+                            data-value="{{this.gmDisposition}}">
+                            {{selectOptions @root.dispositionOptions selected=this.gmDisposition}}
+                        </select>
+                    </td>
+                    <td>
+                        <a class="remove-team" data-index="{{@index}}"><i class="fas fa-trash"></i></a>
+                    </td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+    </div>
+
+    <h2>Disposition Matrix</h2>
+    <p class="notes">Define how teams react to each other.</p>
+    <table class="matrix">
+        <thead>
+            <tr>
+                <th>Target \ Viewer</th>
+                {{#each teams}}
+                <th style="color: {{this.color}}">{{this.name}}</th>
+                {{/each}}
+            </tr>
+        </thead>
+        <tbody>
+            {{#each matrixRows as |row|}}
+            <tr>
+                <th style="color: {{row.team.color}}">{{row.team.name}}</th>
+                {{#each row.cells as |cell|}}
+                <td>
+                    <select name="matrix.{{cell.rowId}}.{{cell.colId}}" class="disposition-select"
+                        data-value="{{cell.value}}">
+                        {{selectOptions @root.dispositionOptions selected=cell.value}}
+                    </select>
+                </td>
+                {{/each}}
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+
+    <button type="submit"><i class="fas fa-save"></i> Save Changes</button>
+</form>
+
+<style>
+    /* Scrollable Team List */
+    .teams-list {
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid #787878;
+        background: rgba(0, 0, 0, 0.2);
+        margin-bottom: 20px;
+        position: relative;
+        /* Context for sticky */
+    }
+
+    .teams-list table {
+        border-collapse: separate;
+        /* Required for sticky to work well with borders sometimes */
+        border-spacing: 0;
+        width: 100%;
+    }
+
+    .teams-list thead th {
+        position: sticky;
+        top: 0;
+        background: #333;
+        /* Opaque background to hide scrolling content */
+        z-index: 10;
+        padding: 5px;
+        border-bottom: 1px solid #787878;
+    }
+
+    /* Compact Matrix Styles */
+    .matrix {
+        font-size: 0.9em;
+        border-collapse: collapse;
+    }
+
+    .matrix th,
+    .matrix td {
+        text-align: center;
+        padding: 2px;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    /* Vertical Headers for Team Names */
+    .matrix thead th:not(:first-child) {
+        writing-mode: vertical-rl;
+        transform: rotate(180deg);
+        white-space: nowrap;
+        height: 120px;
+        /* Adjust based on name length */
+        vertical-align: bottom;
+        padding-top: 5px;
+        padding-bottom: 5px;
+    }
+
+    /* Row Headers */
+    .matrix tbody th {
+        text-align: right;
+        padding-right: 8px;
+        white-space: nowrap;
+        background: rgba(0, 0, 0, 0.05);
+    }
+
+    /* Disposition Select Styling */
+    .disposition-select {
+        text-align: center;
+        border: none;
+        background: transparent;
+        font-weight: bold;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+        text-shadow: 1px 1px 2px #000;
+        /* Improve contrast */
+    }
+
+    /* Color coding via data-value allows simple CSS targeting */
+    .disposition-select[data-value="1"] {
+        color: #43dfdf;
+        /* Keep Cyan, shadow handles contrast */
+    }
+
+    .disposition-select[data-value="0"] {
+        color: #f0f0e0;
+    }
+
+    .disposition-select[data-value="-1"] {
+        color: #ff6666;
+        /* Slightly softer red */
+    }
+
+    .disposition-select[data-value="-2"] {
+        color: #d0a0ff;
+        /* Purple for Secret */
+    }
+
+    /* Option styling */
+    option[value="1"] {
+        color: #43dfdf;
+        background: #333;
+    }
+
+    option[value="0"] {
+        color: #f0f0e0;
+        background: #333;
+    }
+
+    option[value="-1"] {
+        color: #ff6666;
+        background: #333;
+    }
+
+    option[value="-2"] {
+        color: #d0a0ff;
+        background: #333;
+    }
+</style>

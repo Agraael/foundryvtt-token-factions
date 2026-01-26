@@ -23,13 +23,14 @@ This module will allow you to assign tokens to factions by using the token's dis
 
 Artwork and assets kindly provided by and used with permission of Caeora. [www.caeora.com](http://www.caeora.com)
 
-**This is a keeping up to date of the idea of [Voldemalort](https://github.com/Voldemalort) and is project [Token Factions (original)](https://github.com/Voldemalort/token-factions) wishing him all the best possible**
+**This is a personal fork of the [p4535992 version](https://github.com/p4535992/foundryvtt-token-factions) of the Token Factions module, created to add specific features I wanted for my games.**
 
 ## NOTE: This module is under maintenance, I have no plans to update or add features. However, I will try to fix any bugs as possible. Any contribution is welcome.
 
 ## Installation
 
-It's always easiest to install modules from the in game add-on browser.
+**NOTE:** This fork is for manual installation only.
+
 
 To install this module manually:
 1.  Inside the Foundry "Configuration and Setup" screen, click "Add-on Modules"
@@ -124,7 +125,49 @@ Setting this value to anything lower than 1 will allow the map background or tok
 
 ![img7](./wiki/custom-picker-color-token.gif)
 
-# API
+
+## Advanced Factions Features
+
+This fork introduces an "Advanced Factions" system that allows for more granular control over token dispositions and visuals.
+
+### Team Disposition Matrix
+
+Configure specific relationships (Friendly, Neutral, Hostile) between teams using the disposition matrix.
+
+![Advanced Team Matrix](./wiki/advanced%20team%20exemple%20matrix.png)
+
+### Advanced Features
+
+-   **Team Defaults**: Teams can be configured with a default Token Disposition (Friendly, Neutral, Hostile). Assigning a token to a team automatically updates its core Foundry disposition to match, ensuring compatibility with other systems.
+-   **Folder Assignment**: Right-click any Actor folder to "Assign Team" to all actors contained within it (recursive).
+
+### Dynamic HUD
+
+A new "Faction" button is added to the Token HUD for GMs:
+-   **Left-Click**: Opens the Team Assignment menu.
+-   **Right-Click**: Toggles the faction border visibility for the token.
+
+**Visuals**:
+-   **Relative Coloration**: Token borders change color based on the selected token's team perspective.
+-   **Combat Carousel**: Integrates with Combat Carousel to colorize combatants by team.
+
+![Advanced Team Menu](./wiki/advanced%20team%20menu.png)
+
+### AdvancedFactions.getDisposition(actorA:Actor, actorB:Actor) ⇒ <code>number</code>
+
+Returns the disposition (`CONST.TOKEN_DISPOSITIONS`) between two actors based on their team affiliations and the disposition matrix.
+
+**Returns**: <code>number</code> (1: Friendly, 0: Neutral, -1: Hostile)
+
+| Param | Type | Description |
+| --- | --- | --- |
+| actorA | <code>Actor</code> | The source actor |
+| actorB | <code>Actor</code> | The target actor |
+
+
+
+
+
 
 
 ### game.modules.get('token-factions').api.retrieveBorderFactionsColorFromToken(tokenIdOrName:string) ⇒ <code>string</code>
@@ -269,9 +312,8 @@ This package is under an [MIT license](LICENSE) and the [Foundry Virtual Tableto
 
 ## Credit
 
-Thanks to anyone who helps me with this code! I appreciate the user community's feedback on this project!
-
 - [Token Factions (original)](https://github.com/Voldemalort/token-factions) ty to [Voldemalort](https://github.com/Voldemalort)
 - [Token Factions (fork)](https://github.com/erithtotl/token-factions) ty to [erithtotl](https://github.com/erithtotl)
+- [Token Factions (fork)](https://github.com/p4535992/token-factions) ty to [erithtotl](https://github.com/p4535992)
 - [Border-Control](https://github.com/kandashi/Border-Control) ty to [kandashi](https://github.com/kandashi)
 - Ty to [theripper93](https://github.com/theripper93) for the module [injectConfig](https://github.com/theripper93/injectConfig)
