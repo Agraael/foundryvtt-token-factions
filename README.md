@@ -25,7 +25,6 @@ Artwork and assets kindly provided by and used with permission of Caeora. [www.c
 
 **This is a personal fork of the [p4535992 version](https://github.com/p4535992/foundryvtt-token-factions) of the Token Factions module, created to add specific features I wanted for my games.**
 
-## NOTE: This module is under maintenance, I have no plans to update or add features. However, I will try to fix any bugs as possible. Any contribution is welcome.
 
 ## Installation
 
