@@ -123,25 +123,53 @@ export const AdvancedFactions = {
         if (!actorA || !actorB) return CONST.TOKEN_DISPOSITIONS.NEUTRAL;
         if (actorA === actorB) return CONST.TOKEN_DISPOSITIONS.FRIENDLY;
 
-        const teamA = AdvancedFactions._getTeam(actorA);
-        const teamB = AdvancedFactions._getTeam(actorB);
+        if (game.settings.get("token-factions", "color-from") === "advanced-factions") {
+            const teamA = AdvancedFactions._getTeam(actorA);
+            const teamB = AdvancedFactions._getTeam(actorB);
 
+            if (teamA && teamB) {
+                if (teamA === teamB) return CONST.TOKEN_DISPOSITIONS.FRIENDLY;
 
-        if (teamA && teamB) {
-            if (teamA === teamB) return CONST.TOKEN_DISPOSITIONS.FRIENDLY;
+                const matrix = AdvancedFactions.getMatrix();
+                if (matrix[teamA] && matrix[teamA][teamB] !== undefined) {
+                    return parseInt(matrix[teamA][teamB]);
+                }
 
-            const matrix = AdvancedFactions.getMatrix();
-            if (matrix[teamA] && matrix[teamA][teamB] !== undefined) {
-                return parseInt(matrix[teamA][teamB]);
-            }
-
-            if (matrix[teamB] && matrix[teamB][teamA] !== undefined) {
-                return parseInt(matrix[teamB][teamA]);
+                if (matrix[teamB] && matrix[teamB][teamA] !== undefined) {
+                    return parseInt(matrix[teamB][teamA]);
+                }
             }
         }
 
 
-        return CONST.TOKEN_DISPOSITIONS.NEUTRAL;
+        const getDisp = (actor) => {
+            if (actor.prototypeToken) return actor.prototypeToken.disposition;
+            // If it's a token document or has disposition directly
+            if (actor.disposition !== undefined) return actor.disposition;
+            return CONST.TOKEN_DISPOSITIONS.NEUTRAL;
+        };
+
+        const dispA = getDisp(actorA);
+        const dispB = getDisp(actorB);
+
+        const HOSTILE = CONST.TOKEN_DISPOSITIONS.HOSTILE;
+        const SECRET = CONST.TOKEN_DISPOSITIONS.SECRET;
+        const FRIENDLY = CONST.TOKEN_DISPOSITIONS.FRIENDLY;
+        const NEUTRAL = CONST.TOKEN_DISPOSITIONS.NEUTRAL;
+
+        const isBadA = dispA === HOSTILE || dispA === SECRET;
+        const isBadB = dispB === HOSTILE || dispB === SECRET;
+
+        const isGoodA = dispA === FRIENDLY || dispA === NEUTRAL;
+        const isGoodB = dispB === FRIENDLY || dispB === NEUTRAL;
+
+        // If one is Good and one is Bad -> HOSTILE
+        if ((isGoodA && isBadB) || (isBadA && isGoodB)) {
+            return CONST.TOKEN_DISPOSITIONS.HOSTILE;
+        }
+
+        // Otherwise (Good+Good or Bad+Bad) -> FRIENDLY
+        return CONST.TOKEN_DISPOSITIONS.FRIENDLY;
     },
 
     _getTeam: (doc) => {
@@ -291,16 +319,9 @@ export const AdvancedFactions = {
                 return original.apply(this);
             }
 
-
             const colors = CONFIG.Canvas.dispositionColors;
-
-
             if (this.controlled || (this.isOwner && !game.user.isGM)) return colors.CONTROLLED;
-
-
             let disposition;
-
-
             const viewerActor = game.user.character || canvas.tokens.controlled[0]?.actor;
 
             if (game.user.isGM) {
