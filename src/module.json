@@ -2,7 +2,7 @@
     "id": "token-factions",
     "title": "Token Factions",
     "description": "Generate token bases based on token disposition or actor folder color.",
-    "version": "13.0.0",
+    "version": "13.0.1",
     "library": "false",
     "authors": [
         {
