@@ -123,6 +123,23 @@ export const AdvancedFactions = {
         if (!actorA || !actorB) return CONST.TOKEN_DISPOSITIONS.NEUTRAL;
         if (actorA === actorB) return CONST.TOKEN_DISPOSITIONS.FRIENDLY;
 
+        const getDisp = (doc) => {
+            // Token placeable -> use document.disposition
+            if (doc.document?.disposition !== undefined) return doc.document.disposition;
+            // TokenDocument -> use disposition directly
+            if (doc.disposition !== undefined) return doc.disposition;
+            // Actor -> use prototypeToken disposition
+            if (doc.prototypeToken) return doc.prototypeToken.disposition;
+            return CONST.TOKEN_DISPOSITIONS.NEUTRAL;
+        };
+
+        const getTeamDisp = (teamId) => {
+            const teams = AdvancedFactions.getTeams();
+            const team = teams.find(t => t.id === teamId);
+            if (team && team.gmDisposition !== undefined) return parseInt(team.gmDisposition);
+            return null;
+        };
+
         if (game.settings.get("token-factions", "color-from") === "advanced-factions") {
             const teamA = AdvancedFactions._getTeam(actorA);
             const teamB = AdvancedFactions._getTeam(actorB);
@@ -141,16 +158,8 @@ export const AdvancedFactions = {
             }
         }
 
-
-        const getDisp = (actor) => {
-            if (actor.prototypeToken) return actor.prototypeToken.disposition;
-            // If it's a token document or has disposition directly
-            if (actor.disposition !== undefined) return actor.disposition;
-            return CONST.TOKEN_DISPOSITIONS.NEUTRAL;
-        };
-
-        const dispA = getDisp(actorA);
-        const dispB = getDisp(actorB);
+        const dispA = getTeamDisp(AdvancedFactions._getTeam(actorA)) ?? getDisp(actorA);
+        const dispB = getTeamDisp(AdvancedFactions._getTeam(actorB)) ?? getDisp(actorB);
 
         const HOSTILE = CONST.TOKEN_DISPOSITIONS.HOSTILE;
         const SECRET = CONST.TOKEN_DISPOSITIONS.SECRET;
@@ -181,12 +190,10 @@ export const AdvancedFactions = {
         let flag = doc.getFlag ? doc.getFlag("token-factions", "team") : null;
         if (flag) return flag;
 
-
         if (doc.documentName === "Token" && doc.actor) {
 
             return AdvancedFactions._getTeam(doc.actor);
         }
-
 
         if (doc.documentName === "Actor") {
             flag = doc.prototypeToken?.flags?.["token-factions"]?.team;
@@ -231,13 +238,14 @@ export const AdvancedFactions = {
         }
 
 
-        const viewerActor = game.user.character || canvas.tokens.controlled[0]?.actor;
+        const viewerToken = canvas.tokens.controlled[0];
+        const viewerDoc = viewerToken || game.user.character;
         let disposition = CONST.TOKEN_DISPOSITIONS.NEUTRAL;
 
         if (game.user.isGM) {
 
-            if (viewerActor) {
-                disposition = AdvancedFactions.getDisposition(viewerActor, token.actor);
+            if (viewerDoc) {
+                disposition = AdvancedFactions.getDisposition(viewerDoc, token);
             } else {
 
                 const teamId = AdvancedFactions._getTeam(token.actor);
@@ -254,8 +262,8 @@ export const AdvancedFactions = {
                     disposition = token.document.disposition;
                 }
             }
-        } else if (viewerActor) {
-            disposition = AdvancedFactions.getDisposition(viewerActor, token.actor);
+        } else if (viewerDoc) {
+            disposition = AdvancedFactions.getDisposition(viewerDoc, token);
         } else {
             disposition = token.document.disposition;
         }
