@@ -1697,21 +1697,38 @@ const initHooks = /* @__PURE__ */ __name(async () => {
       const combatant = app.viewed.combatants.get(combatantId);
       if (!combatant) return;
 
-      const actor = combatant.actor;
-      if (!actor) return;
+      // Prefer the placed token (combatant.token) over the actor
+      // combatant.token is the TokenDocument. We need to check if we can get the object or just use the doc.
+      // AdvancedFactions._getTeam handles documents.
+      const target = combatant.token || combatant.actor;
+      if (!target) return;
 
       // Use AdvancedFactions to get Team
-      const teamId = AdvancedFactions._getTeam(actor);
+      const teamId = AdvancedFactions._getTeam(target);
       if (!teamId) return;
 
       const team = AdvancedFactions.getTeams().find(t => t.id === teamId);
       if (team && team.color) {
         // Apply border style
-        li.css("border-left", `4px solid ${team.color}`);
-        li.css("border-right", `4px solid ${team.color}`);
+        li.css("border-left", `6px solid ${team.color}`);
+        li.css("border-right", `2px solid ${team.color}`);
         li.find(".token-initiative a").css("color", team.color);
       }
     });
+  });
+
+  // Unique hook to update combat tracker when team changes
+  Hooks.on("updateToken", (tokenDoc, change, options, userId) => {
+    if (!tokenDoc.inCombat) return;
+    if (change.flags?.["token-factions"]?.team !== undefined) {
+      ui.combat.render();
+    }
+  });
+
+  Hooks.on("updateActor", (actor, change, options, userId) => {
+    if (change.flags?.["token-factions"]?.team !== undefined) {
+      ui.combat.render();
+    }
   });
 }, "initHooks");
 const setupHooks = /* @__PURE__ */ __name(async () => {
@@ -1739,8 +1756,31 @@ Hooks.once("init", () => {
     type: Boolean,
     onChange: () => window.location.reload()
   });
+  game.settings.register(CONSTANTS.MODULE_ID, "borderUnderSpriteOnHover", {
+    name: "Keep border under sprite on hover",
+    scope: "world",
+    config: true,
+    default: false,
+    type: Boolean,
+    onChange: () => window.location.reload()
+  });
 
   initHooks();
+
+  // Reverse Foundry's hover voidMesh ordering so the border stays UNDER the
+  // token sprite when hovered (instead of being drawn on top).
+  if (game.settings.get(CONSTANTS.MODULE_ID, "borderUnderSpriteOnHover")
+      && game.modules.get("lib-wrapper")?.active && typeof libWrapper !== "undefined") {
+    libWrapper.register(CONSTANTS.MODULE_ID, "Token.prototype._refreshState", function (wrapped, ...args) {
+      const result = wrapped(...args);
+      const isHover = this.hover || this.layer.highlightObjects;
+      if (isHover && this.voidMesh && this.border) {
+        this.removeChild(this.voidMesh);
+        this.addChildAt(this.voidMesh, this.getChildIndex(this.border) + 1);
+      }
+      return result;
+    }, "WRAPPER");
+  }
 });
 Hooks.once("setup", function () {
   setupHooks();
@@ -1753,9 +1793,8 @@ Hooks.once("ready", () => {
   if (CONFIG.combatTrackerDock && CONFIG.combatTrackerDock.CombatantPortrait) {
     const originalGetBorderColor = CONFIG.combatTrackerDock.CombatantPortrait.prototype.getBorderColor;
     CONFIG.combatTrackerDock.CombatantPortrait.prototype.getBorderColor = function (tokenDocument) {
-      const actor = tokenDocument?.actor;
-      if (actor) {
-        const teamId = AdvancedFactions._getTeam(actor);
+      if (tokenDocument) {
+        const teamId = AdvancedFactions._getTeam(tokenDocument);
         if (teamId) {
           const team = AdvancedFactions.getTeams().find(t => t.id === teamId);
           if (team && team.color) return team.color;
@@ -1791,3 +1830,4 @@ Hooks.once("ready", () => {
   }
 });
 //# sourceMappingURL=module.js.map
+
