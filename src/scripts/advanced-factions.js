@@ -98,8 +98,13 @@ export class TeamConfig extends FormApplication {
     async _onRemoveTeam(event) {
         const idx = event.currentTarget.dataset.index;
         const teams = game.settings.get("token-factions", "team-setup") || [];
+        const removed = teams[idx];
         teams.splice(idx, 1);
         await game.settings.set("token-factions", "team-setup", teams);
+
+        if (removed?.id) {
+            await AdvancedFactions._cleanupTeamReferences(removed.id);
+        }
         this.render();
     }
 }
@@ -518,6 +523,49 @@ export const AdvancedFactions = {
                 d.render(true);
             }
         });
+    },
+
+    _cleanupTeamReferences: async (removedId) => {
+        if (!removedId) return;
+
+        const matrix = game.settings.get("token-factions", "disposition-matrix") || {};
+        if (matrix[removedId]) {
+            delete matrix[removedId];
+        }
+        for (const k of Object.keys(matrix)) {
+            if (matrix[k]?.[removedId] !== undefined) {
+                delete matrix[k][removedId];
+            }
+        }
+        await game.settings.set("token-factions", "disposition-matrix", matrix);
+
+        const actorUpdates = [];
+        for (const a of game.actors) {
+            const teamFlag = a.prototypeToken?.flags?.["token-factions"]?.team
+                ?? a.getFlag?.("token-factions", "team");
+            if (teamFlag === removedId) {
+                actorUpdates.push({
+                    _id: a.id,
+                    "prototypeToken.flags.token-factions.team": null,
+                    "flags.token-factions.team": null
+                });
+            }
+        }
+        if (actorUpdates.length) {
+            await Actor.updateDocuments(actorUpdates);
+        }
+
+        for (const scene of game.scenes) {
+            const tokenUpdates = [];
+            for (const t of scene.tokens) {
+                if (t.flags?.["token-factions"]?.team === removedId) {
+                    tokenUpdates.push({ _id: t.id, "flags.token-factions.team": null });
+                }
+            }
+            if (tokenUpdates.length) {
+                await scene.updateEmbeddedDocuments("Token", tokenUpdates);
+            }
+        }
     },
 
     _recursivelyGetActors: (folder) => {
