@@ -1,6 +1,6 @@
 {
     "id": "token-factions",
-    "title": "Token Factions",
+    "title": "Token Factions (Lasossis's Fork)",
     "description": "Generate token bases based on token disposition or actor folder color.",
     "version": "13.0.3",
     "library": "false",
