@@ -1,0 +1,248 @@
+<form autocomplete="off">
+    <h2>Teams</h2>
+    <p class="notes">Define the teams available in your world.</p>
+    <div class="teams-list">
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Color (Int)</th>
+                    <th>Color (Ext)</th>
+                    <th>GM Disp</th>
+                    <th><a class="add-team"><i class="fas fa-plus"></i> Add</a></th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each teams}}
+                <tr>
+                    <td>
+                        <input type="hidden" name="teams.{{@index}}.id" value="{{this.id}}">
+                        <input type="text" name="teams.{{@index}}.name" value="{{this.name}}">
+                    </td>
+                    <td>
+                        <input type="color" name="teams.{{@index}}.color" value="{{this.color}}">
+                    </td>
+                    <td>
+                        <input type="color" name="teams.{{@index}}.colorEx" value="{{this.colorEx}}">
+                    </td>
+                    <td>
+                        <select name="teams.{{@index}}.gmDisposition" class="disposition-select"
+                            data-value="{{this.gmDisposition}}">
+                            {{selectOptions @root.dispositionOptions selected=this.gmDisposition}}
+                        </select>
+                    </td>
+                    <td>
+                        <a class="remove-team" data-index="{{@index}}"><i class="fas fa-trash"></i></a>
+                    </td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="matrix-toolbar">
+        <h2 style="margin: 0;">Disposition Matrix</h2>
+        <label class="matrix-toggle">
+            <input type="checkbox" class="symmetric-toggle" {{#if symmetricView}}checked{{/if}}>
+            Symmetric view
+        </label>
+        <span class="matrix-hint">click cycles F → N → H → S, right-click reverses. Click a header to set the whole row/column.</span>
+    </div>
+
+    <div class="matrix-scroll {{#if symmetricView}}matrix-symmetric{{/if}}">
+        <table class="matrix">
+            <thead>
+                <tr>
+                    <th class="matrix-corner">Target \ Viewer</th>
+                    {{#each teams}}
+                    <th class="col-header" data-col-id="{{this.id}}" data-col-idx="{{@index}}"
+                        style="color: {{this.color}}" title="Set how everyone views {{this.name}}">{{this.name}}</th>
+                    {{/each}}
+                </tr>
+            </thead>
+            <tbody>
+                {{#each matrixRows as |row|}}
+                <tr data-row-id="{{row.team.id}}" data-row-idx="{{row.rowIdx}}">
+                    <th class="row-header" data-row-id="{{row.team.id}}" data-row-idx="{{row.rowIdx}}"
+                        style="color: {{row.team.color}}" title="Set {{row.team.name}}'s view of everyone">{{row.team.name}}</th>
+                    {{#each row.cells as |cell|}}
+                    <td class="matrix-cell {{#if cell.isLower}}is-lower{{/if}} {{#if cell.isDiagonal}}is-diagonal{{/if}}"
+                        data-row-id="{{cell.rowId}}" data-col-id="{{cell.colId}}"
+                        data-row-idx="{{cell.rowIdx}}" data-col-idx="{{cell.colIdx}}">
+                        <button type="button" class="disp-cell" data-value="{{cell.value}}"
+                            data-row-id="{{cell.rowId}}" data-col-id="{{cell.colId}}">{{cell.glyph}}</button>
+                        <input type="hidden" name="matrix.{{cell.rowId}}.{{cell.colId}}" value="{{cell.value}}">
+                    </td>
+                    {{/each}}
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+    </div>
+
+    <button type="submit"><i class="fas fa-save"></i> Save Changes</button>
+</form>
+
+<style>
+    /* Scrollable Team List */
+    .teams-list {
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid #787878;
+        background: rgba(0, 0, 0, 0.2);
+        margin-bottom: 20px;
+        position: relative;
+    }
+    .teams-list table { border-collapse: separate; border-spacing: 0; width: 100%; }
+    .teams-list thead th {
+        position: sticky; top: 0;
+        background: #333;
+        z-index: 10;
+        padding: 5px;
+        border-bottom: 1px solid #787878;
+    }
+
+    /* Matrix toolbar */
+    .matrix-toolbar {
+        display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+        margin: 8px 0 6px;
+    }
+    .matrix-toggle { display: flex; align-items: center; gap: 4px; font-size: 0.9em; cursor: pointer; }
+    .matrix-hint { font-size: 0.78em; opacity: 0.65; }
+
+    /* Scroll container with sticky headers */
+    .matrix-scroll {
+        max-height: 60vh;
+        overflow: auto;
+        border: 1px solid #555;
+        background: rgba(0, 0, 0, 0.15);
+    }
+    .matrix {
+        font-size: 0.85em;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    .matrix th, .matrix td {
+        text-align: center;
+        padding: 0;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background-clip: padding-box;
+    }
+
+    /* Sticky row headers */
+    .matrix tbody th {
+        position: sticky; left: 0;
+        background: #2c2c2c;
+        z-index: 5;
+        text-align: right;
+        padding: 0 8px;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+    .matrix tbody th:hover { background: #3d3d3d; }
+
+    /* Sticky column headers */
+    .matrix thead th {
+        position: sticky; top: 0;
+        background: #2c2c2c;
+        z-index: 6;
+        writing-mode: vertical-rl;
+        transform: rotate(180deg);
+        white-space: nowrap;
+        height: 120px;
+        vertical-align: bottom;
+        padding: 5px 2px;
+        cursor: pointer;
+    }
+    .matrix thead th:hover { background: #3d3d3d; }
+    .matrix thead th.matrix-corner {
+        position: sticky; left: 0; top: 0;
+        z-index: 8;
+        background: #1f1f1f;
+        writing-mode: initial; transform: none;
+        height: auto;
+        text-align: center;
+        cursor: default;
+        font-weight: bold;
+        opacity: 0.7;
+    }
+
+    /* Hover crosshair */
+    .matrix tbody tr.row-hovered > td,
+    .matrix tbody tr.row-hovered > th { background-color: rgba(255, 200, 80, 0.10); }
+    .matrix .col-hovered { background-color: rgba(255, 200, 80, 0.10); }
+    .matrix tbody tr.row-hovered > th { background-color: rgba(255, 200, 80, 0.18); }
+
+    /* Disposition cell button */
+    .disp-cell {
+        width: 28px; height: 28px;
+        line-height: 1;
+        padding: 0;
+        margin: 0;
+        border: none;
+        background: transparent;
+        font-weight: 900;
+        font-size: 1em;
+        cursor: pointer;
+        text-shadow: 1px 1px 2px #000;
+        transition: background 80ms;
+    }
+    .disp-cell:hover { background: rgba(255, 255, 255, 0.10); }
+    .disp-cell[data-value="1"]  { color: #43dfdf; }
+    .disp-cell[data-value="0"]  { color: #f0f0e0; }
+    .disp-cell[data-value="-1"] { color: #ff6666; }
+    .disp-cell[data-value="-2"] { color: #d0a0ff; }
+
+    .matrix-cell.is-diagonal { background: rgba(255, 255, 255, 0.04); }
+
+    /* Symmetric view: hide lower triangle */
+    .matrix-scroll.matrix-symmetric .matrix-cell.is-lower { visibility: hidden; }
+    .matrix-scroll.matrix-symmetric .matrix-cell.is-lower .disp-cell { pointer-events: none; }
+
+    /* Header set-all popup */
+    .header-setall-menu {
+        position: absolute;
+        background: #1f1f1f;
+        border: 1px solid #888;
+        border-radius: 4px;
+        padding: 4px;
+        z-index: 100;
+        display: flex; gap: 2px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    }
+    .header-setall-menu button {
+        width: 28px; height: 28px;
+        line-height: 1;
+        padding: 0;
+        border: 1px solid #555;
+        background: #2c2c2c;
+        font-weight: 900;
+        cursor: pointer;
+        text-shadow: 1px 1px 2px #000;
+    }
+    .header-setall-menu button:hover { background: #3d3d3d; }
+    .header-setall-menu button[data-value="1"]  { color: #43dfdf; }
+    .header-setall-menu button[data-value="0"]  { color: #f0f0e0; }
+    .header-setall-menu button[data-value="-1"] { color: #ff6666; }
+    .header-setall-menu button[data-value="-2"] { color: #d0a0ff; }
+
+    /* Keep the existing select styles for the gmDisposition selector in the teams table */
+    .disposition-select {
+        text-align: center;
+        border: none;
+        background: transparent;
+        font-weight: bold;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+        text-shadow: 1px 1px 2px #000;
+    }
+    .disposition-select[data-value="1"]  { color: #43dfdf; }
+    .disposition-select[data-value="0"]  { color: #f0f0e0; }
+    .disposition-select[data-value="-1"] { color: #ff6666; }
+    .disposition-select[data-value="-2"] { color: #d0a0ff; }
+    option[value="1"]  { color: #43dfdf; background: #333; }
+    option[value="0"]  { color: #f0f0e0; background: #333; }
+    option[value="-1"] { color: #ff6666; background: #333; }
+    option[value="-2"] { color: #d0a0ff; background: #333; }
+</style>
