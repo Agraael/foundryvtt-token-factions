@@ -613,11 +613,31 @@ export const AdvancedFactions = {
         const token = app.object;
         const currentTeamId = AdvancedFactions._getTeam(token) || "";
         const teams = AdvancedFactions.getTeams();
-        const disableBorder = token.document.getFlag("token-factions", "disableBorder") || false;
+        const _factionState = (t) =>
+        {
+            const v = t.document.getFlag("token-factions", "disableBorder");
+            if (v === "on")
+                return "on";
+            if (v === "combat")
+                return "combat";
+            if (v === "off" || v === true)
+                return "off";
+            return "default";
+        };
+        const borderState = _factionState(token);
+        let stateTip;
+        if (borderState === "default")
+            stateTip = "Default (world setting)";
+        else if (borderState === "on")
+            stateTip = "Forced On";
+        else if (borderState === "combat")
+            stateTip = "Only In Combat";
+        else
+            stateTip = "Forced Off";
 
 
         const button = $(`
-            <div class="control-icon faction-selector ${disableBorder ? "active" : ""}" title="Left-Click: Team\nRight-Click: Toggle Border">
+            <div class="control-icon faction-selector faction-border-${borderState} ${borderState === "off" ? "active" : ""}" title="Left-Click: Team\nRight-Click: Cycle Border (${stateTip})">
                 <i class="fas fa-users"></i>
             </div>
         `);
@@ -688,20 +708,24 @@ export const AdvancedFactions = {
 
         button.contextmenu(async (event) =>
         {
-            const currentState = token.document.getFlag("token-factions", "disableBorder") || false;
-            const newState = !currentState;
+            const current = _factionState(token);
+            const next = current === "default" ? "off" : current === "off" ? "on" : "default";
 
 
             const tokens = canvas.tokens.controlled.length > 0 ? canvas.tokens.controlled : [token];
 
             for (const t of tokens)
             {
-                await t.document.setFlag("token-factions", "disableBorder", newState);
+                await t.document.setFlag("token-factions", "disableBorder", next);
                 t.refresh();
             }
 
 
-            event.currentTarget.classList.toggle("active", newState);
+            const btn = event.currentTarget;
+            btn.classList.remove("faction-border-default", "faction-border-off", "faction-border-on", "active");
+            btn.classList.add(`faction-border-${next}`);
+            if (next === "off")
+                btn.classList.add("active");
         });
 
 

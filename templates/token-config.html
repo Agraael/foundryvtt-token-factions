@@ -1,9 +1,8 @@
 <div class="form-group">
-    <label>
-        {{localize "token-factions.tokeconfig.disableBorder"}}
-    </label>
-    <input type="checkbox" data-edit="flags.token-factions.disableBorder" name="flags.token-factions.disableBorder"
-        data-dtype="Boolean" value="{{disableBorder}}" {{checked disableBorder}} />
+    <label>{{localize "token-factions.tokeconfig.disableBorder"}}</label>
+    <select name="flags.token-factions.disableBorder" data-dtype="String">
+        {{selectOptions disableBorderOptions selected=disableBorderState}}
+    </select>
 </div>
 
 <div class="form-group">

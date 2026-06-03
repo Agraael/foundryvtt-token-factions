@@ -263,6 +263,19 @@ const registerSettings = /* @__PURE__ */ __name(function () {
     default: CONSTANTS.DEFAULTS.REMOVE_BORDERS,
     config: true
   });
+  game.settings.register(CONSTANTS.MODULE_ID, "factionDefaultDraw", {
+    name: "Faction Border Default",
+    hint: "Used by tokens whose per-token setting is 'Default'. On = always draw. Off = never draw. Only In Combat = draw only when there is an active combat.",
+    scope: "world",
+    type: String,
+    choices: {
+      on: "Force On",
+      combat: "Only In Combat",
+      off: "Force Off"
+    },
+    default: "on",
+    config: true
+  });
   game.settings.register(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.PERMANENT_BORDER, {
     name: `${CONSTANTS.MODULE_ID}.setting.${CONSTANTS.SETTINGS.PERMANENT_BORDER}.name`,
     hint: `${CONSTANTS.MODULE_ID}.setting.${CONSTANTS.SETTINGS.PERMANENT_BORDER}.hint`,
@@ -559,6 +572,56 @@ function dropTokenBoarder(token) {
   token.faction.container.removeChildren().forEach((c) => c.destroy());
 }
 __name(dropTokenBoarder, "dropTokenBoarder");
+function _factionFlagState(token) {
+  const v = token?.document?.getFlag?.(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_DISABLE_BORDER);
+  if (v === "on") return "on";
+  if (v === "combat") return "combat";
+  if (v === "off" || v === true) return "off";
+  return "default";
+}
+__name(_factionFlagState, "_factionFlagState");
+function _isAnyCombatActive() {
+  if (game.combat) return true;
+  const active = game.combats?.active;
+  if (active) return true;
+  const any = game.combats?.contents?.some?.(c => c.active);
+  return !!any;
+}
+__name(_isAnyCombatActive, "_isAnyCombatActive");
+function _factionResolveState(state) {
+  if (state === "on") return true;
+  if (state === "off") return false;
+  if (state === "combat") return _isAnyCombatActive();
+  return null;
+}
+__name(_factionResolveState, "_factionResolveState");
+function _factionShouldDraw(token) {
+  const s = _factionFlagState(token);
+  if (s !== "default") return _factionResolveState(s);
+  let worldDefault;
+  try { worldDefault = game.settings.get(CONSTANTS.MODULE_ID, "factionDefaultDraw"); }
+  catch { worldDefault = "on"; }
+  if (worldDefault === true) worldDefault = "on";
+  else if (worldDefault === false) worldDefault = "off";
+  const resolved = _factionResolveState(worldDefault);
+  return resolved === null ? true : resolved;
+}
+__name(_factionShouldDraw, "_factionShouldDraw");
+function _refreshFactionBordersOnCombatChange() {
+  let worldDefault;
+  try { worldDefault = game.settings.get(CONSTANTS.MODULE_ID, "factionDefaultDraw"); }
+  catch { worldDefault = "on"; }
+  if (worldDefault === true) worldDefault = "on";
+  else if (worldDefault === false) worldDefault = "off";
+  const worldUsesCombat = worldDefault === "combat";
+  for (const token of canvas?.tokens?.placeables ?? []) {
+    const s = _factionFlagState(token);
+    if (s === "combat" || (s === "default" && worldUsesCombat)) {
+      try { token.refresh(); } catch (e) { /* ignore */ }
+    }
+  }
+}
+__name(_refreshFactionBordersOnCombatChange, "_refreshFactionBordersOnCombatChange");
 function shouldSkipDrawing(token) {
   if (!token.visible) {
     return true;
@@ -569,7 +632,7 @@ function shouldSkipDrawing(token) {
   } else if (removeBorders === "2") {
     return true;
   }
-  return token.document.getFlag(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_DISABLE_BORDER) ?? false;
+  return !_factionShouldDraw(token);
 }
 __name(shouldSkipDrawing, "shouldSkipDrawing");
 function drawBeveledBorder(token, container, borderColor) {
@@ -1157,7 +1220,7 @@ const API = {
       Logger.warn(`No token is been found with reference '${tokenIdOrName}'`, true);
       return;
     }
-    await token.document.setFlag(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_DISABLE_BORDER, true);
+    await token.document.setFlag(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_DISABLE_BORDER, "off");
   },
   async enableDrawBorderFactionsFromTokens(tokenIdsOrNames) {
     for (const tokenIdOrName of tokenIdsOrNames) {
@@ -1172,7 +1235,7 @@ const API = {
       Logger.warn(`No token is been found with reference '${tokenIdOrName}'`, true);
       return;
     }
-    await token.document.setFlag(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_DISABLE_BORDER, false);
+    await token.document.setFlag(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_DISABLE_BORDER, "on");
   },
   async retrieveBorderFactionsColorFromToken(tokenIdOrName, ignoreSkipDraw = false) {
     const token = canvas.tokens?.placeables.find((t) => {
@@ -1204,14 +1267,7 @@ const API = {
         return factionGraphicDefaultS;
       }
     }
-    let skipDraw;
-    try {
-      skipDraw = token.document.getFlag(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_DISABLE_BORDER);
-    } catch (e) {
-      await token.document.setFlag(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_DISABLE_BORDER, false);
-      skipDraw = token.document.getFlag(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_DISABLE_BORDER);
-    }
-    if (skipDraw && !ignoreSkipDraw) {
+    if (!ignoreSkipDraw && !_factionShouldDraw(token)) {
       return factionGraphicDefaultS;
     }
     return borderColor.INT_S;
@@ -1249,10 +1305,14 @@ function addBorderToggle(app, html, data) {
   if (!app?.object?.document) {
     return;
   }
-  const factionDisableFlag = app.object.document.getFlag(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_DISABLE_BORDER);
+  const factionState = _factionFlagState(app.object);
+  const stateTip = factionState === "default" ? "Default (world setting)"
+    : factionState === "on" ? "Forced On"
+    : factionState === "combat" ? "Only In Combat"
+    : "Forced Off";
   const borderButton = `
-    <div class="control-icon factionBorder ${factionDisableFlag ? "active" : ""}"
-      title="Toggle Faction Border"> <i class="fas fa-angry"></i>
+    <div class="control-icon factionBorder faction-border-${factionState} ${factionState === "off" ? "active" : ""}"
+      title="Faction Border: ${stateTip} — click to cycle"> <i class="fas fa-angry"></i>
     </div>`;
   const settingHudColClass = game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.HUD_COLUMN) ?? "right";
   const settingHudTopBottomClass = game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.HUD_TOP_BOTTOM) ?? "bottom";
@@ -1268,16 +1328,28 @@ function addBorderToggle(app, html, data) {
 }
 __name(addBorderToggle, "addBorderToggle");
 async function toggleBorder(event) {
-  const borderIsDisabled = this.object.document.getFlag(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_DISABLE_BORDER);
+  const current = _factionFlagState(this.object);
+  const next = current === "default" ? "on"
+    : current === "on" ? "combat"
+    : current === "combat" ? "off"
+    : "default";
   for (const token of canvas.tokens?.controlled) {
     try {
-      await token.document.setFlag(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_DISABLE_BORDER, !borderIsDisabled);
+      await token.document.setFlag(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_DISABLE_BORDER, next);
       token.refresh();
     } catch (e) {
       Logger.error(e);
     }
   }
-  event.currentTarget.classList.toggle("active", !borderIsDisabled);
+  const btn = event.currentTarget;
+  btn.classList.remove("faction-border-default", "faction-border-off", "faction-border-on", "faction-border-combat", "active");
+  btn.classList.add(`faction-border-${next}`);
+  if (next === "off") btn.classList.add("active");
+  const label = next === "default" ? "Default (world setting)"
+    : next === "on" ? "Forced On"
+    : next === "combat" ? "Only In Combat"
+    : "Forced Off";
+  btn.title = `Faction Border: ${label} — click to cycle`;
 }
 __name(toggleBorder, "toggleBorder");
 async function toggleCustomBorder(event) {
@@ -1587,8 +1659,12 @@ const renderTokenConfig = /* @__PURE__ */ __name(async function (app, htmlOrEl, 
 }, "renderTokenConfig");
 function _buildFactionTabData(tokenDocOrProto) {
   const tokenFlags = tokenDocOrProto.flags?.[CONSTANTS.MODULE_ID] || {};
+  const rawDisable = tokenFlags[CONSTANTS.FLAGS.FACTION_DISABLE_BORDER];
+  const disableBorderState = rawDisable === "on" ? "on" : (rawDisable === "off" || rawDisable === true) ? "off" : "default";
   return {
-    disableBorder: isRealBoolean(tokenFlags[CONSTANTS.FLAGS.FACTION_DISABLE_BORDER]) ? Boolean(tokenFlags[CONSTANTS.FLAGS.FACTION_DISABLE_BORDER]) : false,
+    disableBorderState,
+    disableBorderOptions: { default: "Default (world setting)", on: "Force On", combat: "Only In Combat", off: "Force Off" },
+    disableBorder: disableBorderState === "off",
     customBorder: isRealBoolean(tokenFlags[CONSTANTS.FLAGS.FACTION_CUSTOM_BORDER]) ? Boolean(tokenFlags[CONSTANTS.FLAGS.FACTION_CUSTOM_BORDER]) : false,
     customColorInt: tokenFlags[CONSTANTS.FLAGS.FACTION_CUSTOM_COLOR_INT] || game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.HOSTILE_COLOR),
     customColorExt: tokenFlags[CONSTANTS.FLAGS.FACTION_CUSTOM_COLOR_EXT] || game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.HOSTILE_COLOR_EX),
@@ -1714,6 +1790,11 @@ const initHooks = /* @__PURE__ */ __name(async () => {
     }
   });
   Hooks.on("renderTokenHUD", handleRenderHUD);
+  Hooks.on("createCombat", _refreshFactionBordersOnCombatChange);
+  Hooks.on("deleteCombat", _refreshFactionBordersOnCombatChange);
+  Hooks.on("combatStart", _refreshFactionBordersOnCombatChange);
+  Hooks.on("updateCombat", _refreshFactionBordersOnCombatChange);
+  Hooks.on("canvasReady", _refreshFactionBordersOnCombatChange);
   Hooks.on("refreshToken", (token, options) => {
     if (token.faction) {
       if (options.refreshBorder || options.refreshVisibility) {
