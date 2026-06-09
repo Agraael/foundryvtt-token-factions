@@ -540,16 +540,33 @@ export const AdvancedFactions = {
     patchTokenBorder: () =>
     {
         const original = Token.prototype._getBorderColor;
+        const _finalize = (token, color) =>
+        {
+            const helpers = globalThis.__tokenFactionsHelpers;
+            const pct = helpers?.hoverBrightnessPct?.() ?? 0;
+            if (pct > 0 && token.hover && !token.controlled && helpers?.brightenColor)
+                return Number(helpers.brightenColor(color, pct));
+            return color;
+        };
         Token.prototype._getBorderColor = function ()
         {
+            const helpers = globalThis.__tokenFactionsHelpers;
+            if (!this.controlled && helpers?.isHoverDispositionVisible && !helpers.isHoverDispositionVisible())
+            {
+                const base = helpers.colorBorderFaction?.(this);
+                const baseInt = base?.INT;
+                if (baseInt !== undefined && baseInt !== null)
+                    return _finalize(this, Number(baseInt));
+            }
+
             if (game.settings.get("token-factions", "color-from") !== "advanced-factions")
             {
-                return original.apply(this);
+                return _finalize(this, original.apply(this));
             }
 
             const colors = CONFIG.Canvas.dispositionColors;
             if (this.controlled || (this.isOwner && !game.user.isGM))
-                return colors.CONTROLLED;
+                return _finalize(this, colors.CONTROLLED);
             let disposition;
             const viewerActor = game.user.character || canvas.tokens.controlled[0]?.actor;
 
@@ -595,11 +612,11 @@ export const AdvancedFactions = {
             const D = CONST.TOKEN_DISPOSITIONS;
             switch (disposition)
             {
-            case D.SECRET: return colors.SECRET;
-            case D.HOSTILE: return colors.HOSTILE;
-            case D.NEUTRAL: return colors.NEUTRAL;
-            case D.FRIENDLY: return this.actor?.hasPlayerOwner ? colors.PARTY : colors.FRIENDLY;
-            default: return original.apply(this);
+            case D.SECRET: return _finalize(this, colors.SECRET);
+            case D.HOSTILE: return _finalize(this, colors.HOSTILE);
+            case D.NEUTRAL: return _finalize(this, colors.NEUTRAL);
+            case D.FRIENDLY: return _finalize(this, this.actor?.hasPlayerOwner ? colors.PARTY : colors.FRIENDLY);
+            default: return _finalize(this, original.apply(this));
             }
         };
     },

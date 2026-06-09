@@ -32,6 +32,8 @@ const CONSTANTS = Object.freeze({
     PARTY_COLOR_EX: "#000000",
     ACTOR_FOLDER_COLOR_EX: "#000000",
     COLOR_FROM: "token-disposition",
+    HOVER_DISPOSITION_VISIBILITY: "always",
+    HOVER_BRIGHTNESS: 0,
     BASE_OPACITY: 0.5,
     FILL_TEXTURE: true,
     FRAME_STYLE: "flat",
@@ -51,6 +53,8 @@ const CONSTANTS = Object.freeze({
   SETTINGS: {
     RESET: "reset",
     COLOR_FROM: "color-from",
+    HOVER_DISPOSITION_VISIBILITY: "hover-disposition-visibility",
+    HOVER_BRIGHTNESS: "hover-brightness",
     BASE_OPACITY: "base-opacity",
     FILL_TEXTURE: "fillTexture",
     FRAME_STYLE: "frame-style",
@@ -203,6 +207,32 @@ const registerSettings = /* @__PURE__ */ __name(function () {
       "actor-folder-color": `${CONSTANTS.MODULE_ID}.setting.color-from.opt.actor-folder-color`,
       "advanced-factions": "Advanced Factions (Teams)"
     }
+  });
+  game.settings.register(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.HOVER_DISPOSITION_VISIBILITY, {
+    name: "Hover Border: Disposition Color",
+    hint: "When to show the disposition color on the hover/control ring. Outside the condition, the token-factions base ring color is used instead.",
+    scope: "world",
+    config: true,
+    default: CONSTANTS.DEFAULTS.HOVER_DISPOSITION_VISIBILITY,
+    type: String,
+    choices: {
+      "always": "Always",
+      "combat": "Only in combat",
+      "controlling": "Only while controlling a token",
+      "combat-controlling": "Only in combat while controlling a token",
+      "never": "Never (always use base ring color)"
+    },
+    onChange: () => _refreshAllTokenBorders()
+  });
+  game.settings.register(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.HOVER_BRIGHTNESS, {
+    name: "Hover Brightness",
+    hint: "Percent boost applied to both the hover ring and the faction base ring when hovering a token. 0 = off.",
+    scope: "world",
+    config: true,
+    default: CONSTANTS.DEFAULTS.HOVER_BRIGHTNESS,
+    type: Number,
+    range: { min: 0, max: 100, step: 5 },
+    onChange: () => _refreshAllTokenBorders()
   });
   game.settings.register(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.BASE_OPACITY, {
     name: `${CONSTANTS.MODULE_ID}.setting.${CONSTANTS.SETTINGS.BASE_OPACITY}.name`,
@@ -549,7 +579,7 @@ function drawBorderFaction(token) {
     Logger.debug(`Skipping drawing border for token ${token.document.name}`);
     return;
   }
-  const borderColor = colorBorderFaction(token);
+  const borderColor = _maybeBrightenForHover(token, colorBorderFaction(token));
   if (!borderColor) {
     Logger.debug(`No border color is found for token ${token.document.name}`);
     return;
@@ -607,6 +637,53 @@ function _factionShouldDraw(token) {
   return resolved === null ? true : resolved;
 }
 __name(_factionShouldDraw, "_factionShouldDraw");
+function _isHoverDispositionVisible() {
+  let mode;
+  try { mode = game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.HOVER_DISPOSITION_VISIBILITY); }
+  catch { return true; }
+  if (mode === "always") return true;
+  if (mode === "never") return false;
+  const inCombat = !!game.combat?.started;
+  const hasControlled = (canvas?.tokens?.controlled?.length ?? 0) > 0;
+  if (mode === "combat") return inCombat;
+  if (mode === "controlling") return hasControlled;
+  if (mode === "combat-controlling") return inCombat && hasControlled;
+  return true;
+}
+__name(_isHoverDispositionVisible, "_isHoverDispositionVisible");
+function _refreshAllTokenBorders() {
+  for (const token of canvas?.tokens?.placeables ?? []) {
+    try { token.refresh(); } catch { /* ignore */ }
+  }
+}
+__name(_refreshAllTokenBorders, "_refreshAllTokenBorders");
+function _hoverBrightnessPct() {
+  try { return Number(game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.HOVER_BRIGHTNESS)) || 0; }
+  catch { return 0; }
+}
+__name(_hoverBrightnessPct, "_hoverBrightnessPct");
+function _brightenColor(value, pct) {
+  const t = Math.max(0, Math.min(100, pct)) / 100;
+  if (t === 0) return value;
+  const c = Color.from(value);
+  const r = c.r + (1 - c.r) * t;
+  const g = c.g + (1 - c.g) * t;
+  const b = c.b + (1 - c.b) * t;
+  return Color.fromRGB([r, g, b]);
+}
+__name(_brightenColor, "_brightenColor");
+function _maybeBrightenForHover(token, borderColor) {
+  if (!borderColor || !token?.hover || token.controlled) return borderColor;
+  const pct = _hoverBrightnessPct();
+  if (pct <= 0) return borderColor;
+  return {
+    INT: _brightenColor(borderColor.INT, pct),
+    EX: _brightenColor(borderColor.EX, pct),
+    INT_S: borderColor.INT_S,
+    EX_S: borderColor.EX_S
+  };
+}
+__name(_maybeBrightenForHover, "_maybeBrightenForHover");
 function _refreshFactionBordersOnCombatChange() {
   let worldDefault;
   try { worldDefault = game.settings.get(CONSTANTS.MODULE_ID, "factionDefaultDraw"); }
@@ -997,6 +1074,12 @@ function colorBorderFaction(token) {
   }
 }
 __name(colorBorderFaction, "colorBorderFaction");
+globalThis.__tokenFactionsHelpers = {
+  colorBorderFaction,
+  isHoverDispositionVisible: _isHoverDispositionVisible,
+  hoverBrightnessPct: _hoverBrightnessPct,
+  brightenColor: _brightenColor
+};
 function getTextureScale(token) {
   return game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.SCALE_BORDER) ? {
     textureScaleX: token.document.texture.scaleX,
@@ -1795,6 +1878,18 @@ const initHooks = /* @__PURE__ */ __name(async () => {
   Hooks.on("combatStart", _refreshFactionBordersOnCombatChange);
   Hooks.on("updateCombat", _refreshFactionBordersOnCombatChange);
   Hooks.on("canvasReady", _refreshFactionBordersOnCombatChange);
+  const _hoverVisRefresh = () => {
+    const mode = game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.HOVER_DISPOSITION_VISIBILITY);
+    if (mode !== "always" && mode !== "never") _refreshAllTokenBorders();
+  };
+  Hooks.on("controlToken", _hoverVisRefresh);
+  Hooks.on("createCombat", _hoverVisRefresh);
+  Hooks.on("deleteCombat", _hoverVisRefresh);
+  Hooks.on("combatStart", _hoverVisRefresh);
+  Hooks.on("hoverToken", (token) => {
+    if (_hoverBrightnessPct() <= 0) return;
+    try { token.refresh(); } catch { /* ignore */ }
+  });
   Hooks.on("refreshToken", (token, options) => {
     if (token.faction) {
       if (options.refreshBorder || options.refreshVisibility) {
