@@ -653,7 +653,8 @@ function _isHoverDispositionVisible() {
 __name(_isHoverDispositionVisible, "_isHoverDispositionVisible");
 function _refreshAllTokenBorders() {
   for (const token of canvas?.tokens?.placeables ?? []) {
-    try { token.refresh(); } catch { /* ignore */ }
+    try { token.faction?.updateToken?.(); } catch { /* ignore */ }
+    try { token.renderFlags?.set?.({ refreshBorder: true }); } catch { /* ignore */ }
   }
 }
 __name(_refreshAllTokenBorders, "_refreshAllTokenBorders");
@@ -694,7 +695,8 @@ function _refreshFactionBordersOnCombatChange() {
   for (const token of canvas?.tokens?.placeables ?? []) {
     const s = _factionFlagState(token);
     if (s === "combat" || (s === "default" && worldUsesCombat)) {
-      try { token.refresh(); } catch (e) { /* ignore */ }
+      try { token.faction?.updateToken?.(); } catch (e) { /* ignore */ }
+      try { token.renderFlags?.set?.({ refreshBorder: true }); } catch (e) { /* ignore */ }
     }
   }
 }
@@ -1827,6 +1829,18 @@ function handelRenderSettingsConfig(app, htmlOrEl, data) {
   el.find(`[name="${CONSTANTS.MODULE_ID}.${CONSTANTS.SETTINGS.ACTOR_FOLDER_COLOR_EX}"]`).parent().append(
     `<input type="color" value="${actorFolderColorEx}" data-edit="${CONSTANTS.MODULE_ID}.${CONSTANTS.SETTINGS.ACTOR_FOLDER_COLOR_EX}">`
   );
+  el.on("input change", `input[type="color"][data-edit]`, (ev) => {
+    const key = ev.currentTarget.dataset.edit;
+    const text = el.find(`input[name="${key}"]`);
+    if (text.length) text.val(ev.currentTarget.value).trigger("change");
+  });
+  el.on("input change", `input[type="text"][name^="${CONSTANTS.MODULE_ID}."]`, (ev) => {
+    const v = ev.currentTarget.value;
+    if (!/^#[0-9a-f]{6}$/i.test(v)) return;
+    const key = ev.currentTarget.name;
+    const picker = el.find(`input[type="color"][data-edit="${key}"]`);
+    if (picker.length) picker.val(v);
+  });
 }
 __name(handelRenderSettingsConfig, "handelRenderSettingsConfig");
 const initHooks = /* @__PURE__ */ __name(async () => {
@@ -1842,7 +1856,7 @@ const initHooks = /* @__PURE__ */ __name(async () => {
   Hooks.on("updateSetting", (setting) => {
     if (setting.key.startsWith(CONSTANTS.MODULE_ID)) {
       Logger.debug(`Faction settings changed. Key: ${setting.key} to ${setting.value}`);
-      TokenFactions.updateAllTokens();
+      _refreshAllTokenBorders();
     }
   });
   Hooks.on("renderTokenConfig", renderTokenConfig);
@@ -1877,6 +1891,8 @@ const initHooks = /* @__PURE__ */ __name(async () => {
   Hooks.on("deleteCombat", _refreshFactionBordersOnCombatChange);
   Hooks.on("combatStart", _refreshFactionBordersOnCombatChange);
   Hooks.on("updateCombat", _refreshFactionBordersOnCombatChange);
+  Hooks.on("createCombatant", _refreshFactionBordersOnCombatChange);
+  Hooks.on("deleteCombatant", _refreshFactionBordersOnCombatChange);
   Hooks.on("canvasReady", _refreshFactionBordersOnCombatChange);
   const _hoverVisRefresh = () => {
     const mode = game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.HOVER_DISPOSITION_VISIBILITY);
@@ -1888,7 +1904,8 @@ const initHooks = /* @__PURE__ */ __name(async () => {
   Hooks.on("combatStart", _hoverVisRefresh);
   Hooks.on("hoverToken", (token) => {
     if (_hoverBrightnessPct() <= 0) return;
-    try { token.refresh(); } catch { /* ignore */ }
+    try { token.faction?.updateToken?.(); } catch { /* ignore */ }
+    try { token.renderFlags?.set?.({ refreshBorder: true }); } catch { /* ignore */ }
   });
   Hooks.on("refreshToken", (token, options) => {
     if (token.faction) {

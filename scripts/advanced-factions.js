@@ -548,6 +548,17 @@ export const AdvancedFactions = {
                 return Number(helpers.brightenColor(color, pct));
             return color;
         };
+        const _customColor = (key, fallback) =>
+        {
+            try
+            {
+                const v = game.settings.get("token-factions", key);
+                if (typeof v === "string" && v.startsWith("#"))
+                    return parseInt(v.slice(1), 16);
+            }
+            catch (e) { /* ignore */ }
+            return fallback;
+        };
         Token.prototype._getBorderColor = function ()
         {
             const helpers = globalThis.__tokenFactionsHelpers;
@@ -559,63 +570,60 @@ export const AdvancedFactions = {
                     return _finalize(this, Number(baseInt));
             }
 
-            if (game.settings.get("token-factions", "color-from") !== "advanced-factions")
-            {
-                return _finalize(this, original.apply(this));
-            }
-
             const colors = CONFIG.Canvas.dispositionColors;
             if (this.controlled || (this.isOwner && !game.user.isGM))
-                return _finalize(this, colors.CONTROLLED);
+                return _finalize(this, _customColor("controlledColor", colors.CONTROLLED));
+
+            const colorFrom = game.settings.get("token-factions", "color-from");
             let disposition;
-            const viewerActor = game.user.character || canvas.tokens.controlled[0]?.actor;
-
-            if (game.user.isGM)
+            if (colorFrom === "advanced-factions")
             {
-                if (viewerActor)
+                const viewerActor = game.user.character || canvas.tokens.controlled[0]?.actor;
+                if (game.user.isGM)
                 {
-                    disposition = AdvancedFactions.getDisposition(viewerActor, this);
-                }
-                else
-                {
-
-                    const teamId = AdvancedFactions._getTeam(this);
-                    if (teamId)
+                    if (viewerActor)
                     {
-                        const teams = AdvancedFactions.getTeams();
-                        const team = teams.find(t => t.id === teamId);
-                        if (team && team.gmDisposition !== undefined)
+                        disposition = AdvancedFactions.getDisposition(viewerActor, this);
+                    }
+                    else
+                    {
+                        const teamId = AdvancedFactions._getTeam(this);
+                        if (teamId)
                         {
-                            disposition = parseInt(team.gmDisposition);
+                            const teams = AdvancedFactions.getTeams();
+                            const team = teams.find(t => t.id === teamId);
+                            if (team && team.gmDisposition !== undefined)
+                                disposition = parseInt(team.gmDisposition);
+                            else
+                                disposition = this.document.disposition;
                         }
                         else
                         {
                             disposition = this.document.disposition;
                         }
                     }
-                    else
-                    {
-                        disposition = this.document.disposition;
-                    }
                 }
-            }
-            else if (viewerActor)
-            {
-                disposition = AdvancedFactions.getDisposition(viewerActor, this);
+                else if (viewerActor)
+                {
+                    disposition = AdvancedFactions.getDisposition(viewerActor, this);
+                }
+                else
+                {
+                    disposition = this.document.disposition;
+                }
             }
             else
             {
-
-                disposition = this.document.disposition;
+                disposition = parseInt(this.document.disposition);
             }
 
             const D = CONST.TOKEN_DISPOSITIONS;
             switch (disposition)
             {
             case D.SECRET: return _finalize(this, colors.SECRET);
-            case D.HOSTILE: return _finalize(this, colors.HOSTILE);
-            case D.NEUTRAL: return _finalize(this, colors.NEUTRAL);
-            case D.FRIENDLY: return _finalize(this, this.actor?.hasPlayerOwner ? colors.PARTY : colors.FRIENDLY);
+            case D.HOSTILE: return _finalize(this, _customColor("hostileColor", colors.HOSTILE));
+            case D.NEUTRAL: return _finalize(this, _customColor("neutralColor", colors.NEUTRAL));
+            case D.FRIENDLY: return _finalize(this, this.actor?.hasPlayerOwner ? _customColor("partyColor", colors.PARTY) : _customColor("friendlyColor", colors.FRIENDLY));
             default: return _finalize(this, original.apply(this));
             }
         };
