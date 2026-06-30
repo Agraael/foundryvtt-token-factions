@@ -1357,6 +1357,21 @@ const API = {
     }
     return borderColor.INT_S;
   },
+  // Pure color lookup, no draw-gate filtering. Honors all `color-from` modes
+  // and the per-token custom-border flag.
+  getFactionColor(tokenIdOrName) {
+    const token = canvas.tokens?.placeables.find((t) => {
+      return isStringEquals(t.id, tokenIdOrName) || isStringEquals(t.name, tokenIdOrName);
+    });
+    if (!token) {
+      return null;
+    }
+    const c = colorBorderFaction(token);
+    if (!c) {
+      return null;
+    }
+    return { INT_S: c.INT_S, EX_S: c.EX_S };
+  },
   clearGridFactionArr(...inAttributes) {
     if (!Array.isArray(inAttributes)) {
       throw Logger.error("clearGridFactionArr | inAttributes must be of type array");
