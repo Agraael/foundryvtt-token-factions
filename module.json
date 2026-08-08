@@ -1,8 +1,8 @@
 {
     "id": "token-factions",
-    "title": "Token Factions (Lasossis's Fork)",
+    "title": "Token Factions - Advanced Team (LaSossis's Fork)",
     "description": "Generate token bases based on token disposition or actor folder color.",
-    "version": "13.1.0",
+    "version": "13.2.0",
     "library": "false",
     "authors": [
         {
@@ -29,7 +29,11 @@
             "email": ""
         },
         {
-            "name": "Agraael"
+            "name": "LaSossis",
+            "url": "https://github.com/Agraael",
+            "github": "Agraael",
+            "patreon": "https://www.patreon.com/c/LaSossis",
+            "discord": "232918237107453962"
         }
     ],
     "type": "module",
@@ -83,7 +87,7 @@
     },
     "url": "https://github.com/Agraael/foundryvtt-token-factions",
     "manifest": "https://github.com/Agraael/foundryvtt-token-factions/releases/latest/download/module.json",
-    "download": "https://github.com/Agraael/foundryvtt-token-factions/releases/download/13.1.0/module.zip",
+    "download": "https://github.com/Agraael/foundryvtt-token-factions/releases/download/13.2.0/module.zip",
     "readme": "https://github.com/Agraael/foundryvtt-token-factions/blob/master/README.md",
     "changelog": "https://github.com/Agraael/foundryvtt-token-factions/blob/master/CHANGELOG.md",
     "bugs": "https://github.com/Agraael/foundryvtt-token-factions/issues",
