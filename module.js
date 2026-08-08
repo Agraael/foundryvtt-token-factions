@@ -2013,7 +2013,7 @@ Hooks.once("init", () => {
     config: true,
     default: false,
     type: Boolean,
-    onChange: () => window.location.reload()
+    requiresReload: true
   });
 
   initHooks();
