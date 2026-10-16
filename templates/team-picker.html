@@ -1,0 +1,26 @@
+<div class="tf-palette tf-picker" style="{{dispositionColors}}">
+    <div class="tf-picker-target">
+        <span class="tf-picker-icon"><i class="fas {{icon}}"></i></span>
+        <div>
+            <strong>{{label}}</strong>
+            <small>{{sub}}</small>
+        </div>
+    </div>
+    <div class="tf-palette-list" role="radiogroup" aria-label="{{#if teamsOn}}Team{{else}}Disposition{{/if}}">
+        {{#each rows}}
+        <button type="button" role="radio" aria-checked="{{selected}}" class="tf-palette-row{{#if selected}} selected{{/if}}" data-action="pick" data-value="{{value}}">
+            {{#if none}}<span class="tf-chip tf-none"></span>{{else}}<span class="tf-chip" style="--ci: {{color}}; --ce: {{colorEx}};"></span>{{/if}}
+            <span class="tf-palette-name">{{name}}</span>
+            {{#if current}}<span class="tf-muted">current</span>{{/if}}
+            {{#if defKey}}<span class="tf-pill tf-sm tf-{{defKey}}">{{defShort}}</span>{{/if}}
+        </button>
+        {{/each}}
+    </div>
+    <div class="tf-palette-foot">
+        <label class="tf-check"><input type="checkbox" data-tf-option="placed" {{checked placed}}> Also update placed tokens</label>
+        {{#if teamsOn}}
+        <label class="tf-check"><input type="checkbox" data-tf-option="setDisposition" {{checked setDisposition}}> Set disposition to the team default</label>
+        {{/if}}
+        <button type="button" class="tf-apply" data-action="apply"><i class="fas fa-check"></i> {{applyLabel}}</button>
+    </div>
+</div>

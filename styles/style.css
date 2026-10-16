@@ -1,1 +1,1024 @@
+#settings-config section[data-category="token-factions"] .tf-settings-group {
+  margin: 1.25rem 0 0.25rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--color-border, rgba(255, 255, 255, 0.15));
+  font-size: var(--font-size-12, 12px);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
 
+#settings-config section[data-category="token-factions"] .tf-settings-group:first-child {
+  margin-top: 0.25rem;
+}
+
+#settings-config section[data-category="token-factions"] .tf-settings-group-hint {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: var(--font-size-11, 11px);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 0.7;
+}
+
+#settings-config section[data-category="token-factions"] .tf-team-off {
+  display: none !important;
+}
+
+#settings-config section[data-category="token-factions"] .tf-pair {
+  gap: 1.25rem;
+}
+
+#settings-config section[data-category="token-factions"] .tf-pair .tf-swatch {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+
+#settings-config section[data-category="token-factions"] .tf-pair input[type="text"] {
+  display: none;
+}
+
+#token-factions-team-config .window-content {
+  padding: 0.75rem 1rem 1rem;
+}
+
+#token-factions-team-config .tf-root {
+  --tf-panel: rgba(255, 255, 255, 0.04);
+  --tf-line: rgba(255, 255, 255, 0.12);
+  --tf-muted: rgba(255, 255, 255, 0.6);
+  --tf-focus: var(--color-warm-2, #ff6400);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+#token-factions-team-config .tf-f { --tf-d: var(--tf-f); }
+#token-factions-team-config .tf-n { --tf-d: var(--tf-n); }
+#token-factions-team-config .tf-h { --tf-d: var(--tf-h); }
+#token-factions-team-config .tf-s { --tf-d: var(--tf-s); }
+
+#token-factions-team-config .tf-off-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid color-mix(in srgb, #e9c46a 40%, transparent);
+  border-radius: 5px;
+  background: color-mix(in srgb, #e9c46a 10%, transparent);
+}
+
+#token-factions-team-config .tf-off-banner > i {
+  color: #e9c46a;
+}
+
+#token-factions-team-config .tf-off-banner p {
+  flex: 1;
+  margin: 0;
+}
+
+#token-factions-team-config .tf-off-banner button {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+#token-factions-team-config .tf-grid {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 1rem;
+}
+
+#token-factions-team-config .tf-side {
+  padding-right: 0.75rem;
+  border-right: 1px solid var(--tf-line);
+}
+
+#token-factions-team-config .tf-side-head,
+#token-factions-team-config .tf-rel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+#token-factions-team-config h3 {
+  margin: 0;
+  border: none;
+  font-size: var(--font-size-16, 16px);
+}
+
+#token-factions-team-config .tf-small,
+#token-factions-team-config .tf-toggle {
+  flex: 0 0 auto;
+  width: auto;
+  height: 1.75rem;
+  padding: 0 0.6rem;
+  font-size: var(--font-size-12, 12px);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+#token-factions-team-config .tf-toggle.on {
+  border-color: var(--tf-focus);
+  box-shadow: inset 0 0 0 1px var(--tf-focus);
+}
+
+#token-factions-team-config .tf-team-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 520px;
+  margin: 0;
+  padding: 0 4px 0 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+#token-factions-team-config .tf-team-item {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  column-gap: 4px;
+  padding: 4px 6px 5px 2px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+
+#token-factions-team-config .tf-team-item:hover {
+  background: var(--tf-panel);
+}
+
+#token-factions-team-config .tf-team-item.selected {
+  border-color: color-mix(in srgb, var(--tf-focus) 55%, transparent);
+  background: color-mix(in srgb, var(--tf-focus) 12%, transparent);
+}
+
+#token-factions-team-config .tf-team-item.dragging {
+  opacity: 0.45;
+}
+
+#token-factions-team-config .tf-team-item.drop-before {
+  box-shadow: inset 0 2px 0 var(--tf-focus);
+}
+
+#token-factions-team-config .tf-team-item.drop-after {
+  box-shadow: inset 0 -2px 0 var(--tf-focus);
+}
+
+#token-factions-team-config .tf-grip {
+  display: grid;
+  grid-row: span 2;
+  place-items: center;
+  font-size: 10px;
+  opacity: 0.4;
+  cursor: grab;
+}
+
+#token-factions-team-config .tf-grip:hover {
+  opacity: 1;
+}
+
+#token-factions-team-config .tf-team-pick {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  height: auto;
+  padding: 0 0 0 2px;
+  border: none;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  font-size: var(--font-size-13, 13px);
+  text-align: left;
+}
+
+#token-factions-team-config .tf-team-pick .tf-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#token-factions-team-config .tf-team-pick .tf-pill {
+  margin-left: auto;
+}
+
+#token-factions-team-config .tf-chip {
+  display: inline-block;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ci);
+  box-shadow: 0 0 0 2px var(--ce), 0 0 0 3px rgba(255, 255, 255, 0.3);
+}
+
+#token-factions-team-config .tf-stance {
+  display: flex;
+  gap: 1px;
+  height: 4px;
+  margin: 4px 0 0 20px;
+  overflow: hidden;
+  border-radius: 2px;
+}
+
+#token-factions-team-config .tf-stance span {
+  background: color-mix(in srgb, var(--tf-d) 75%, #000);
+}
+
+#token-factions-team-config .tf-pill {
+  display: inline-block;
+  padding: 0 0.5rem;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--tf-d) 26%, transparent);
+  color: color-mix(in srgb, var(--tf-d) 55%, #fff);
+  font-size: var(--font-size-11, 11px);
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+#token-factions-team-config .tf-pill.tf-sm {
+  min-width: 18px;
+  padding: 0 0.3rem;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+
+#token-factions-team-config .tf-team-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.9rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--tf-line);
+}
+
+#token-factions-team-config .tf-preview {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  margin: 0;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+#token-factions-team-config .tf-preview svg {
+  position: absolute;
+  inset: 2px;
+  width: 80px;
+  height: 80px;
+}
+
+#token-factions-team-config .tf-preview-bg {
+  fill: rgba(255, 255, 255, 0.04);
+}
+
+#token-factions-team-config .tf-preview > img {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border: none;
+  opacity: 0.7;
+}
+
+#token-factions-team-config .tf-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+#token-factions-team-config .tf-field {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+}
+
+#token-factions-team-config .tf-field > label,
+#token-factions-team-config .tf-label {
+  color: var(--tf-muted);
+  font-size: var(--font-size-12, 12px);
+}
+
+#token-factions-team-config .tf-help {
+  margin-left: 3px;
+  opacity: 0.6;
+  cursor: help;
+}
+
+#token-factions-team-config .tf-help:hover {
+  opacity: 1;
+}
+
+#token-factions-team-config .tf-swatches {
+  display: flex;
+  gap: 1rem;
+}
+
+#token-factions-team-config .tf-swatches label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+
+#token-factions-team-config .tf-swatches input[type="color"] {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 4px;
+}
+
+#token-factions-team-config .tf-seg {
+  display: inline-flex;
+  width: max-content;
+  overflow: hidden;
+  border: 1px solid var(--tf-line);
+  border-radius: 4px;
+}
+
+#token-factions-team-config .tf-seg button {
+  width: auto;
+  height: 1.7rem;
+  padding: 0 0.65rem;
+  border: none;
+  border-right: 1px solid var(--tf-line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: var(--font-size-12, 12px);
+}
+
+#token-factions-team-config .tf-seg button:last-child {
+  border-right: none;
+}
+
+#token-factions-team-config .tf-seg button.on {
+  background: color-mix(in srgb, var(--tf-d) 26%, transparent);
+  color: color-mix(in srgb, var(--tf-d) 55%, #fff);
+  font-weight: 600;
+}
+
+#token-factions-team-config .tf-hint {
+  margin: 0;
+  color: var(--tf-muted);
+  font-size: var(--font-size-11, 11px);
+}
+
+#token-factions-team-config .tf-delete {
+  display: flex;
+  justify-content: flex-end;
+}
+
+#token-factions-team-config .tf-danger-text {
+  color: #ff8a8a;
+}
+
+#token-factions-team-config .tf-danger {
+  border-color: #8a2a2a;
+  background: #5a1d1d;
+}
+
+#token-factions-team-config .tf-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 200px;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid #6e2a30;
+  border-radius: 5px;
+  background: #3a1d22;
+}
+
+#token-factions-team-config .tf-confirm p {
+  margin: 0;
+  font-size: var(--font-size-12, 12px);
+}
+
+#token-factions-team-config .tf-confirm-buttons {
+  display: flex;
+  gap: 0.4rem;
+}
+
+#token-factions-team-config .tf-rel-head {
+  margin-top: 0.75rem;
+}
+
+#token-factions-team-config .tf-lanes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+#token-factions-team-config .tf-lane {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 0.5rem;
+  padding: 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--tf-d) 24%, transparent);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--tf-d) 7%, transparent);
+}
+
+#token-factions-team-config .tf-lane.drop {
+  outline: 2px dashed var(--tf-d);
+  outline-offset: -1px;
+}
+
+#token-factions-team-config .tf-lanes.picking .tf-lane {
+  cursor: pointer;
+}
+
+#token-factions-team-config .tf-lanes.picking .tf-lane:hover {
+  outline: 1px dashed var(--tf-d);
+  outline-offset: -1px;
+}
+
+#token-factions-team-config .tf-lane-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+#token-factions-team-config .tf-count {
+  color: var(--tf-muted);
+  font-size: var(--font-size-11, 11px);
+}
+
+#token-factions-team-config .tf-link {
+  width: auto;
+  height: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+  color: var(--tf-muted);
+  font-size: var(--font-size-11, 11px);
+  line-height: 1.2;
+}
+
+#token-factions-team-config .tf-link:hover {
+  color: inherit;
+  text-decoration: underline;
+}
+
+#token-factions-team-config .tf-lane-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 4px;
+  min-height: 28px;
+  max-height: 56px;
+  overflow-y: auto;
+}
+
+#token-factions-team-config .tf-team-chip {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.45rem;
+  width: auto;
+  height: 26px;
+  padding: 0 0.6rem 0 0.5rem;
+  border: 1px solid var(--tf-line);
+  border-radius: 13px;
+  font-size: var(--font-size-12, 12px);
+  line-height: 1;
+  cursor: grab;
+}
+
+#token-factions-team-config .tf-team-chip.picked {
+  border-color: var(--tf-focus);
+  box-shadow: 0 0 0 1px var(--tf-focus);
+}
+
+#token-factions-team-config .tf-back {
+  padding: 0 0.3rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--tf-d) 28%, transparent);
+  color: color-mix(in srgb, var(--tf-d) 55%, #fff);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+#token-factions-team-config .tf-empty {
+  align-self: center;
+  padding-left: 0.25rem;
+  color: var(--tf-muted);
+  font-size: var(--font-size-12, 12px);
+}
+
+#token-factions-team-config .tf-footer button {
+  width: 100%;
+}
+
+.tf-tab {
+  --tf-line: rgba(255, 255, 255, 0.12);
+  --tf-muted: rgba(255, 255, 255, 0.6);
+  --tf-focus: var(--color-warm-2, #ff6400);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tf-tab .tf-f { --tf-d: var(--tf-f); }
+.tf-tab .tf-n { --tf-d: var(--tf-n); }
+.tf-tab .tf-h { --tf-d: var(--tf-h); }
+.tf-tab .tf-s { --tf-d: var(--tf-s); }
+
+.tf-tab .tf-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--tf-line);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.tf-tab .tf-card-preview {
+  width: 84px;
+  height: 84px;
+  margin: 0;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.tf-tab .tf-card-preview svg {
+  display: block;
+  width: 84px;
+  height: 84px;
+}
+
+.tf-tab .tf-card-label {
+  color: var(--tf-muted);
+  font-size: var(--font-size-11, 11px);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tf-tab .tf-card-name {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 2px 0 4px;
+  font-size: var(--font-size-20, 20px);
+  font-weight: 600;
+}
+
+.tf-tab .tf-card-name .tf-chip {
+  width: 12px;
+  height: 12px;
+}
+
+.tf-tab .tf-card-meta {
+  color: var(--tf-muted);
+  font-size: var(--font-size-12, 12px);
+}
+
+.tf-tab .tf-small {
+  flex: 0 0 auto;
+  width: auto;
+  padding: 0 0.75rem;
+  white-space: nowrap;
+}
+
+.tf-tab .tf-chip {
+  display: inline-block;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ci);
+  box-shadow: 0 0 0 2px var(--ce), 0 0 0 3px rgba(255, 255, 255, 0.3);
+}
+
+.tf-tab .tf-chip.tf-none {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.45);
+}
+
+.tf-tab .tf-pill {
+  display: inline-block;
+  padding: 0 0.5rem;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--tf-d) 26%, transparent);
+  color: color-mix(in srgb, var(--tf-d) 55%, #fff);
+  font-size: var(--font-size-11, 11px);
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.tf-tab .tf-stance {
+  display: flex;
+  gap: 1px;
+  max-width: 260px;
+  height: 6px;
+  margin-top: 0.5rem;
+  overflow: hidden;
+  border-radius: 3px;
+}
+
+.tf-tab .tf-stance span {
+  background: color-mix(in srgb, var(--tf-d) 75%, #000);
+}
+
+.tf-tab .tf-chooser {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 0.6rem;
+  border: 1px solid var(--tf-line);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.tf-tab .tf-option {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.45rem;
+  width: auto;
+  height: 28px;
+  padding: 0 0.65rem 0 0.55rem;
+  border-radius: 14px;
+  font-size: var(--font-size-12, 12px);
+  line-height: 1;
+}
+
+.tf-tab .tf-option.on {
+  border-color: var(--tf-focus);
+  box-shadow: 0 0 0 1px var(--tf-focus);
+}
+
+.tf-tab .tf-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.25rem;
+  color: var(--tf-muted);
+  font-size: var(--font-size-12, 12px);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tf-tab .tf-link {
+  width: auto;
+  height: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+  color: var(--tf-muted);
+  font-size: var(--font-size-12, 12px);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.tf-tab .tf-link:hover {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.tf-tab .tf-relations {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tf-tab .tf-relation {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  align-items: start;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--tf-d) 20%, transparent);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--tf-d) 7%, transparent);
+}
+
+.tf-tab .tf-relation .tf-pill {
+  justify-self: start;
+  margin-top: 2px;
+}
+
+.tf-tab .tf-relation-teams {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 50px;
+  overflow-y: auto;
+}
+
+.tf-tab .tf-rchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 22px;
+  padding: 0 0.5rem 0 0.45rem;
+  border: 1px solid var(--tf-line);
+  border-radius: 11px;
+  font-size: var(--font-size-12, 12px);
+}
+
+.tf-tab .tf-rchip .tf-chip {
+  width: 8px;
+  height: 8px;
+}
+
+.tf-tab .tf-seg {
+  display: inline-flex;
+  width: max-content;
+  overflow: hidden;
+  border: 1px solid var(--tf-line);
+  border-radius: 4px;
+}
+
+.tf-tab .tf-seg button {
+  width: auto;
+  padding: 0 0.75rem;
+  border: none;
+  border-right: 1px solid var(--tf-line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  white-space: nowrap;
+}
+
+.tf-tab .tf-seg button:last-child {
+  border-right: none;
+}
+
+.tf-tab .tf-seg button.on {
+  background: color-mix(in srgb, var(--tf-focus) 22%, transparent);
+  font-weight: 600;
+}
+
+.tf-tab .tf-overrides {
+  border: 1px solid var(--tf-line);
+  border-radius: 6px;
+}
+
+.tf-tab .tf-overrides > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tf-tab .tf-overrides[open] > summary {
+  border-bottom: 1px solid var(--tf-line);
+}
+
+.tf-tab .tf-overrides > .form-group {
+  padding: 0 0.75rem;
+}
+
+.tf-tab .tf-muted {
+  color: var(--tf-muted);
+  font-size: var(--font-size-12, 12px);
+  font-weight: 400;
+}
+
+.tf-tab .tf-range-value {
+  flex: 0 0 2.5rem;
+  text-align: right;
+}
+
+#token-hud .tf-hud-wrap {
+  position: relative;
+  flex: none;
+}
+
+#token-hud .tf-hud-button {
+  position: relative;
+}
+
+#token-hud .tf-hud-button::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  bottom: 4px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--tf-bar, transparent);
+}
+
+.tf-palette {
+  --tf-line: rgba(255, 255, 255, 0.12);
+  --tf-muted: rgba(255, 255, 255, 0.6);
+  --tf-focus: var(--color-warm-2, #ff6400);
+}
+
+.tf-palette .tf-f { --tf-d: var(--tf-f); }
+.tf-palette .tf-n { --tf-d: var(--tf-n); }
+.tf-palette .tf-h { --tf-d: var(--tf-h); }
+.tf-palette .tf-s { --tf-d: var(--tf-s); }
+
+#token-hud .tf-palette {
+  position: absolute;
+  top: 0;
+  left: calc(100% + 8px);
+  z-index: 10;
+  width: 222px;
+  padding: 8px;
+  border: 1px solid var(--control-border-color, #45444e);
+  border-radius: 6px;
+  background: rgba(12, 12, 16, 0.95);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  color: var(--color-text-primary, #e7e5df);
+  font-size: var(--font-size-13, 13px);
+  line-height: normal;
+  pointer-events: all;
+}
+
+#token-hud .tf-hud-left .tf-palette {
+  left: auto;
+  right: calc(100% + 8px);
+}
+
+.tf-palette .tf-palette-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 4px 2px;
+  font-weight: 600;
+}
+
+.tf-palette .tf-palette-list {
+  display: grid;
+  align-content: start;
+  gap: 1px;
+  max-height: 270px;
+  margin-top: 6px;
+  overflow-y: auto;
+}
+
+.tf-palette .tf-palette-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  height: 28px;
+  min-height: 0;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  font-size: var(--font-size-13, 13px);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tf-palette .tf-palette-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tf-palette .tf-palette-row.current,
+.tf-palette .tf-palette-row.selected {
+  border-color: color-mix(in srgb, var(--tf-focus) 55%, transparent);
+  background: color-mix(in srgb, var(--tf-focus) 12%, transparent);
+}
+
+.tf-palette .tf-palette-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tf-palette .tf-chip {
+  display: inline-block;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ci);
+  box-shadow: 0 0 0 2px var(--ce), 0 0 0 3px rgba(255, 255, 255, 0.3);
+}
+
+.tf-palette .tf-chip.tf-none {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.45);
+}
+
+.tf-palette .tf-pill {
+  min-width: 18px;
+  padding: 0 0.3rem;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--tf-d) 26%, transparent);
+  color: color-mix(in srgb, var(--tf-d) 55%, #fff);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+}
+
+.tf-palette .tf-muted {
+  color: var(--tf-muted);
+  font-size: var(--font-size-11, 11px);
+  font-weight: 400;
+}
+
+.tf-palette .tf-palette-foot {
+  display: grid;
+  gap: 7px;
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--tf-line);
+}
+
+.tf-palette .tf-ring-modes {
+  display: flex;
+  gap: 4px;
+}
+
+.tf-palette .tf-ring-modes button {
+  flex: 1;
+  height: 28px;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid var(--tf-line);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
+  color: var(--tf-muted);
+  font-size: var(--font-size-13, 13px);
+  cursor: pointer;
+}
+
+.tf-palette .tf-ring-modes button.on {
+  border-color: var(--tf-focus);
+  background: color-mix(in srgb, var(--tf-focus) 16%, transparent);
+  color: #fff;
+}
+
+.tf-team-picker .window-content {
+  padding: 0.75rem;
+}
+
+.tf-picker .tf-picker-target {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.tf-picker .tf-picker-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tf-picker .tf-picker-target strong {
+  display: block;
+}
+
+.tf-picker .tf-picker-target small {
+  color: var(--tf-muted);
+  font-size: var(--font-size-12, 12px);
+}
+
+.tf-picker .tf-palette-list {
+  max-height: 310px;
+  margin-top: 10px;
+}
+
+.tf-picker .tf-check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--font-size-12, 12px);
+  cursor: pointer;
+}
+
+.tf-picker .tf-check input {
+  flex: none;
+  margin: 0;
+}

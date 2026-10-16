@@ -1,59 +1,123 @@
-<div class="form-group">
-    <label>{{localize "token-factions.tokeconfig.disableBorder"}}</label>
-    <select name="flags.token-factions.disableBorder" data-dtype="String">
-        {{selectOptions disableBorderOptions selected=disableBorderState}}
-    </select>
-</div>
-
-<div class="form-group">
-    <label>Team</label>
-    <select name="flags.token-factions.team" data-dtype="String">
-        {{selectOptions teams selected=team valueAttr="id" labelAttr="name" blank=""}}
-    </select>
-</div>
-
-<div class="form-group">
-    <label>{{localize "token-factions.tokeconfig.customBorder"}}</label>
-    <input type="checkbox" data-edit="flags.token-factions.customBorder" name="flags.token-factions.customBorder"
-        data-dtype="Boolean" value="{{customBorder}}" {{checked customBorder}} />
-</div>
-
-<div class="form-group">
-    <label>{{localize "token-factions.tokeconfig.customColorInt"}}</label>
-    <div class="form-fields">
-        <color-picker value="{{customColorInt}}" name="flags.token-factions.customColorInt">
-            <input type="text" value="{{customColorInt}}" />
-            <input type="color" />
-        </color-picker>
+<div class="tf-tab" style="{{dispositionColors}}">
+    {{#if teamsEnabled}}
+    <input type="hidden" name="flags.token-factions.team" value="{{state.team}}">
+    <div class="tf-card">
+        <figure class="tf-card-preview">
+            <svg viewBox="0 0 80 80" aria-hidden="true">
+                <image href="{{image}}" x="12" y="12" width="56" height="56" preserveAspectRatio="xMidYMid meet"></image>
+                {{#if shapeCircle}}
+                <circle cx="40" cy="40" r="33" fill="none" stroke="{{ring.outer}}" stroke-opacity="0.8" stroke-width="6"></circle>
+                <circle cx="40" cy="40" r="33" fill="none" stroke="{{ring.inner}}" stroke-width="3"></circle>
+                {{/if}}
+                {{#if shapeHex}}
+                <polygon points="40,6 69.44,23 69.44,57 40,74 10.56,57 10.56,23" fill="none" stroke="{{ring.outer}}" stroke-opacity="0.8" stroke-width="6" stroke-linejoin="round"></polygon>
+                <polygon points="40,6 69.44,23 69.44,57 40,74 10.56,57 10.56,23" fill="none" stroke="{{ring.inner}}" stroke-width="3" stroke-linejoin="round"></polygon>
+                {{/if}}
+                {{#if shapeSquare}}
+                <rect x="8" y="8" width="64" height="64" rx="3" fill="none" stroke="{{ring.outer}}" stroke-opacity="0.8" stroke-width="6"></rect>
+                <rect x="8" y="8" width="64" height="64" rx="3" fill="none" stroke="{{ring.inner}}" stroke-width="3"></rect>
+                {{/if}}
+            </svg>
+        </figure>
+        <div class="tf-card-info">
+            <div class="tf-card-label">Team</div>
+            <div class="tf-card-name">
+                {{#if team}}<span class="tf-chip" style="--ci: {{team.color}}; --ce: {{team.colorEx}};"></span>{{team.name}}{{else}}No team{{/if}}
+            </div>
+            {{#if team}}
+            <div class="tf-card-meta">Default <span class="tf-pill tf-{{team.def.key}}">{{team.def.label}}</span> sets this token's disposition.</div>
+            <span class="tf-stance">{{#each team.stance}}<span class="tf-{{key}}" style="flex-grow: {{count}};"></span>{{/each}}</span>
+            {{else}}
+            <div class="tf-card-meta">The ring follows this token's disposition.</div>
+            {{/if}}
+        </div>
+        <button type="button" class="tf-small" data-tf-action="chooser">{{#if state.chooser}}Done{{else}}Change{{/if}}</button>
     </div>
-</div>
-
-<div class="form-group">
-    <label>{{localize "token-factions.tokeconfig.customColorExt"}}</label>
-    <div class="form-fields">
-        <color-picker value="{{customColorExt}}" name="flags.token-factions.customColorExt">
-            <input type="text" value="{{customColorExt}}" />
-            <input type="color" />
-        </color-picker>
+    {{#if chooser}}
+    <div class="tf-chooser">
+        {{#each chooser}}
+        <button type="button" class="tf-option{{#if on}} on{{/if}}" data-tf-action="team" data-team-id="{{id}}" aria-pressed="{{on}}">
+            {{#if none}}<span class="tf-chip tf-none"></span>{{else}}<span class="tf-chip" style="--ci: {{color}}; --ce: {{colorEx}};"></span>{{/if}}{{name}}
+        </button>
+        {{/each}}
     </div>
-</div>
-<div class="form-group">
-    <label>{{localize "token-factions.tokeconfig.customFrameOpacity"}}</label>
-    <div class="form-fields">
-        <range-picker name="flags.token-factions.customFrameOpacity" value="{{customFrameOpacity}}" min="0" max="1"
-            step="0.01">
-            <input type="range" min="0" max="1" step="0.01" />
-            <input type="number" min="0" max="1" step="0.01" />
-        </range-picker>
+    {{/if}}
+    {{#if team}}
+    <div class="tf-section-head">
+        <span>{{team.name}} sees</span>
+        <button type="button" class="tf-link" data-tf-action="editRelations">Edit relations <i class="fa-solid fa-arrow-right"></i></button>
     </div>
-</div>
-<div class="form-group">
-    <label>{{localize "token-factions.tokeconfig.customBaseOpacity"}}</label>
-    <div class="form-fields">
-        <range-picker name="flags.token-factions.customBaseOpacity" value="{{customBaseOpacity}}" min="0" max="1"
-            step="0.01">
-            <input type="range" min="0" max="1" step="0.01" />
-            <input type="number" min="0" max="1" step="0.01" />
-        </range-picker>
+    <div class="tf-relations">
+        {{#each relations}}
+        <div class="tf-relation tf-{{key}}">
+            <span class="tf-pill tf-{{key}}">{{label}}</span>
+            <div class="tf-relation-teams">
+                {{#each teams}}<span class="tf-rchip"><span class="tf-chip" style="--ci: {{color}}; --ce: {{colorEx}};"></span>{{name}}</span>{{/each}}
+            </div>
+        </div>
+        {{/each}}
     </div>
+    {{/if}}
+    {{/if}}
+    <div class="form-group">
+        <label>Show ring</label>
+        <div class="form-fields">
+            <input type="hidden" name="flags.token-factions.disableBorder" value="{{state.border}}">
+            <div class="tf-seg">
+                {{#each ringModes}}
+                <button type="button" class="{{#if on}}on{{/if}}" data-tf-action="border" data-value="{{value}}" aria-pressed="{{on}}">{{label}}</button>
+                {{/each}}
+            </div>
+        </div>
+    </div>
+    <details class="tf-overrides"{{#if state.overrides}} open{{/if}}>
+        <summary><span>Overrides</span><span class="tf-muted">{{overridesLabel}}</span></summary>
+        <div class="form-group">
+            <label>Custom color</label>
+            <div class="form-fields">
+                <input type="checkbox" name="flags.token-factions.customBorder" data-tf-field="custom" {{checked state.custom}}>
+            </div>
+            <p class="hint">Replaces the team or disposition color on this token only.</p>
+        </div>
+        {{#if state.custom}}
+        <div class="form-group">
+            <label>Inner color</label>
+            <div class="form-fields">
+                <input type="color" name="flags.token-factions.customColorInt" value="{{state.colorIn}}" data-tf-field="colorIn">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Outer color</label>
+            <div class="form-fields">
+                <input type="color" name="flags.token-factions.customColorExt" value="{{state.colorOut}}" data-tf-field="colorOut">
+            </div>
+        </div>
+        {{/if}}
+        <div class="form-group">
+            <label>Ring opacity</label>
+            <div class="form-fields">
+                <input type="checkbox" data-tf-field="frameSet" aria-label="Override ring opacity" {{checked state.frameSet}}>
+                {{#if state.frameSet}}
+                <input type="range" name="flags.token-factions.customFrameOpacity" min="0" max="1" step="0.05" value="{{state.frame}}" data-tf-field="frame">
+                <span class="tf-range-value" data-tf-label="frame">{{frameLabel}}</span>
+                {{else}}
+                <input type="hidden" name="flags.token-factions.customFrameOpacity" value="">
+                <span class="tf-muted">World setting ({{frameLabel}})</span>
+                {{/if}}
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Fill opacity</label>
+            <div class="form-fields">
+                <input type="checkbox" data-tf-field="baseSet" aria-label="Override fill opacity" {{checked state.baseSet}}>
+                {{#if state.baseSet}}
+                <input type="range" name="flags.token-factions.customBaseOpacity" min="0" max="1" step="0.05" value="{{state.base}}" data-tf-field="base">
+                <span class="tf-range-value" data-tf-label="base">{{baseLabel}}</span>
+                {{else}}
+                <input type="hidden" name="flags.token-factions.customBaseOpacity" value="">
+                <span class="tf-muted">World setting ({{baseLabel}})</span>
+                {{/if}}
+            </div>
+        </div>
+    </details>
 </div>

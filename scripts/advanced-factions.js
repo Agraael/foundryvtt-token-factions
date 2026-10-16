@@ -1,259 +1,621 @@
 /* global document, window, setTimeout, game, CONST, foundry, ui, FormApplication */
 
-export class TeamConfig extends FormApplication
+export const TF_DISPOSITIONS = [
+    { value: 1, key: "f", label: "Friendly", short: "F" },
+    { value: 0, key: "n", label: "Neutral", short: "N" },
+    { value: -1, key: "h", label: "Hostile", short: "H" },
+    { value: -2, key: "s", label: "Secret", short: "S" }
+];
+export const tfDisposition = (value) => TF_DISPOSITIONS.find(entry => entry.value === Number(value)) ?? TF_DISPOSITIONS[1];
+export const TF_NO_TEAM = "none";
+export const TF_RING_MODES = [
+    { value: "default", label: "World default", icon: "fa-globe" },
+    { value: "on", label: "Always", icon: "fa-eye" },
+    { value: "combat", label: "In combat", icon: "fa-crosshairs" },
+    { value: "off", label: "Never", icon: "fa-eye-slash" }
+];
+
+let tfHudPaletteToken = null;
+
+const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
+
+export class TeamConfig extends HandlebarsApplicationMixin(ApplicationV2)
 {
-    static get defaultOptions()
+    static DEFAULT_OPTIONS = {
+        id: "token-factions-team-config",
+        tag: "form",
+        classes: ["tf-team-config"],
+        window: { title: "Team Configuration", icon: "fas fa-users-gear", resizable: true },
+        position: { width: 820, height: "auto" },
+        form: { handler: TeamConfig.#onSubmit, closeOnSubmit: true },
+        actions: {
+            addTeam: TeamConfig.#onAddTeam,
+            selectTeam: TeamConfig.#onSelectTeam,
+            setDefault: TeamConfig.#onSetDefault,
+            setMembers: TeamConfig.#onSetMembers,
+            setAll: TeamConfig.#onSetAll,
+            toggleMirror: TeamConfig.#onToggleMirror,
+            pickChip: TeamConfig.#onPickChip,
+            dropOnLane: TeamConfig.#onDropOnLane,
+            deleteTeam: TeamConfig.#onDeleteTeam,
+            confirmDelete: TeamConfig.#onConfirmDelete,
+            cancelDelete: TeamConfig.#onCancelDelete,
+            turnOnTeams: TeamConfig.#onTurnOnTeams
+        }
+    };
+
+    static PARTS = {
+        form: {
+            template: "modules/token-factions/templates/team-config.html",
+            scrollable: [
+                ".tf-team-list",
+                ".tf-lane[data-lane='1'] .tf-lane-chips",
+                ".tf-lane[data-lane='0'] .tf-lane-chips",
+                ".tf-lane[data-lane='-1'] .tf-lane-chips",
+                ".tf-lane[data-lane='-2'] .tf-lane-chips"
+            ]
+        }
+    };
+
+    #teams = [];
+    #matrix = {};
+    #selected = null;
+    #pick = null;
+    #pendingDelete = null;
+    #removed = new Set();
+    #mirror = true;
+    #focusName = false;
+    #dragTeam = null;
+    #dragChip = null;
+
+    constructor(options = {})
     {
-        return foundry.utils.mergeObject(super.defaultOptions, {
-            title: "Team Configuration",
-            id: "token-factions-team-config",
-            template: `modules/token-factions/templates/team-config.html`,
-            width: 600,
-            height: "auto",
-            closeOnSubmit: true
-        });
+        super(options);
+        this.#teams = foundry.utils.deepClone(AdvancedFactions.getTeams()).map(team => ({
+            ...team,
+            colorEx: team.colorEx || "#000000",
+            gmDisposition: Number(team.gmDisposition ?? 0)
+        }));
+        this.#matrix = foundry.utils.deepClone(AdvancedFactions.getMatrix()) ?? {};
+        const wanted = options.selectedTeam;
+        this.#selected = wanted && this.#teams.some(team => team.id === wanted) ? wanted : this.#teams[0]?.id ?? null;
+        try
+        {
+            this.#mirror = globalThis.localStorage?.getItem("tf-mirror-pairs") !== "0";
+        }
+        catch
+        {
+            this.#mirror = true;
+        }
     }
 
-    getData()
+    #rel(viewerId, targetId)
     {
-        const teams = game.settings.get("token-factions", "team-setup") || [];
-        const matrix = game.settings.get("token-factions", "disposition-matrix") || {};
+        return AdvancedFactions.relation(viewerId, targetId, this.#matrix);
+    }
 
-        const DISP_GLYPH = {
-            [CONST.TOKEN_DISPOSITIONS.FRIENDLY]: "F",
-            [CONST.TOKEN_DISPOSITIONS.NEUTRAL]: "N",
-            [CONST.TOKEN_DISPOSITIONS.HOSTILE]: "H",
-            [CONST.TOKEN_DISPOSITIONS.SECRET]: "S"
-        };
-
-        const matrixRows = teams.map((rowTeam, rowIdx) =>
+    #setRel(viewerId, targetId, value)
+    {
+        if (viewerId === targetId)
+            return;
+        this.#matrix[viewerId] ??= {};
+        this.#matrix[viewerId][targetId] = value;
+        if (this.#mirror)
         {
-            const cells = teams.map((colTeam, colIdx) =>
+            this.#matrix[targetId] ??= {};
+            this.#matrix[targetId][viewerId] = value;
+        }
+    }
+
+    #current()
+    {
+        return this.#teams.find(team => team.id === this.#selected) ?? null;
+    }
+
+    async _prepareContext()
+    {
+        const teams = this.#teams;
+        if (!teams.some(team => team.id === this.#selected))
+            this.#selected = teams[0]?.id ?? null;
+        const selected = this.#current();
+        const stance = (id) => TF_DISPOSITIONS
+            .map(entry => ({ key: entry.key, count: teams.filter(other => other.id !== id && this.#rel(id, other.id) === entry.value).length }))
+            .filter(slice => slice.count > 0);
+        const list = teams.map(team => ({
+            id: team.id,
+            name: team.name,
+            color: team.color,
+            colorEx: team.colorEx,
+            selected: team.id === this.#selected,
+            def: tfDisposition(team.gmDisposition),
+            stance: stance(team.id)
+        }));
+        let lanes = [];
+        let anyOneWay = false;
+        if (selected)
+        {
+            const others = teams.filter(other => other.id !== selected.id);
+            lanes = TF_DISPOSITIONS.map(entry =>
             {
-                let value = 0;
-                if (rowTeam.id === colTeam.id)
-                    value = 1;
-                if (matrix[rowTeam.id] && matrix[rowTeam.id][colTeam.id] !== undefined)
+                const chips = others.filter(other => this.#rel(selected.id, other.id) === entry.value).map(other =>
                 {
-                    value = matrix[rowTeam.id][colTeam.id];
-                }
-                return {
-                    rowId: rowTeam.id,
-                    colId: colTeam.id,
-                    rowIdx,
-                    colIdx,
-                    value,
-                    glyph: DISP_GLYPH[value] ?? "?",
-                    isLower: rowIdx > colIdx,
-                    isDiagonal: rowIdx === colIdx
-                };
+                    const back = this.#rel(other.id, selected.id);
+                    if (back !== entry.value)
+                        anyOneWay = true;
+                    return {
+                        id: other.id,
+                        name: other.name,
+                        color: other.color,
+                        colorEx: other.colorEx,
+                        picked: other.id === this.#pick,
+                        back: back === entry.value ? null : tfDisposition(back)
+                    };
+                });
+                return { ...entry, chips, countLabel: chips.length === 1 ? "1 team" : `${chips.length} teams` };
             });
-            return { team: rowTeam, rowIdx, cells };
-        });
-
-        let symmetricView = true;
-        try { symmetricView = globalThis.localStorage?.getItem("tf-symmetric-view") !== "0"; }
-        catch { /* localStorage unavailable */ }
-
+        }
         return {
-            teams,
-            matrixRows,
-            symmetricView,
-            dispositionOptions: {
-                [CONST.TOKEN_DISPOSITIONS.FRIENDLY]: "Friendly",
-                [CONST.TOKEN_DISPOSITIONS.NEUTRAL]: "Neutral",
-                [CONST.TOKEN_DISPOSITIONS.HOSTILE]: "Hostile",
-                [CONST.TOKEN_DISPOSITIONS.SECRET]: "Secret"
-            }
+            teamsEnabled: AdvancedFactions.teamsEnabled(),
+            dispositionColors: AdvancedFactions.dispositionCssVars(),
+            list,
+            selected: selected ? {
+                ...selected,
+                defaults: TF_DISPOSITIONS.map(entry => ({ ...entry, on: entry.value === selected.gmDisposition })),
+                members: TF_DISPOSITIONS.map(entry => ({ ...entry, on: entry.value === this.#rel(selected.id, selected.id) })),
+                pendingDelete: this.#pendingDelete === selected.id
+            } : null,
+            lanes,
+            anyOneWay,
+            mirror: this.#mirror,
+            picking: !!this.#pick
         };
     }
 
-    async _updateObject(event, formData)
+    async _onFirstRender(context, options)
     {
-        const expanded = foundry.utils.expandObject(formData);
-
-
-        const newTeams = Object.values(expanded.teams || []);
-        await game.settings.set("token-factions", "team-setup", newTeams);
-
-
-        await game.settings.set("token-factions", "disposition-matrix", expanded.matrix || {});
+        await super._onFirstRender(context, options);
+        const el = this.element;
+        el.addEventListener("input", event => this.#onInput(event));
+        el.addEventListener("keydown", event => this.#onKeyDown(event));
+        el.addEventListener("mousedown", event => this.#onMouseDown(event));
+        el.addEventListener("mouseup", () => this.#clearDraggable());
+        el.addEventListener("dragstart", event => this.#onDragStart(event));
+        el.addEventListener("dragover", event => this.#onDragOver(event));
+        el.addEventListener("drop", event => this.#onDrop(event));
+        el.addEventListener("dragend", () => this.#onDragEnd());
     }
 
-    activateListeners(html)
+    async _onRender(context, options)
     {
-        super.activateListeners(html);
-        const root = html[0] ?? html;
-
-        root.querySelectorAll('.add-team').forEach(el => el.addEventListener('click', this._onAddTeam.bind(this)));
-        root.querySelectorAll('.remove-team').forEach(el => el.addEventListener('click', this._onRemoveTeam.bind(this)));
-        root.querySelectorAll('.disposition-select').forEach(el => el.addEventListener('change', this._onGmDispositionChange.bind(this)));
-
-        // Cycle on left-click, reverse on right-click.
-        root.querySelectorAll('.disp-cell').forEach(btn =>
-        {
-            btn.addEventListener('click', (e) => this._cycleCell(e.currentTarget, +1));
-            btn.addEventListener('contextmenu', (e) => { e.preventDefault(); this._cycleCell(e.currentTarget, -1); });
-        });
-
-        // Symmetric view toggle (per-client localStorage).
-        const symToggle = root.querySelector('.symmetric-toggle');
-        const scroll = root.querySelector('.matrix-scroll');
-        symToggle?.addEventListener('change', (e) =>
-        {
-            const on = !!e.currentTarget.checked;
-            try
-            {
-                globalThis.localStorage?.setItem('tf-symmetric-view', on ? '1' : '0');
-            }
-            catch { /* ignore */ }
-            scroll?.classList.toggle('matrix-symmetric', on);
-        });
-
-        // Row / column "set all" via header click.
-        root.querySelectorAll('.row-header').forEach(th => th.addEventListener('click', (e) => this._openSetAllMenu(e.currentTarget, 'row')));
-        root.querySelectorAll('.col-header').forEach(th => th.addEventListener('click', (e) => this._openSetAllMenu(e.currentTarget, 'col')));
-
-        // Hover crosshair.
-        const cols = Array.from(root.querySelectorAll('.matrix thead th.col-header'));
-        root.querySelectorAll('.matrix-cell').forEach(cell =>
-        {
-            cell.addEventListener('mouseenter', () => this._setCrosshair(root, cell, cols, true));
-            cell.addEventListener('mouseleave', () => this._setCrosshair(root, cell, cols, false));
-        });
+        await super._onRender(context, options);
+        if (!this.#focusName)
+            return;
+        this.#focusName = false;
+        const input = this.element.querySelector("input[data-team-name]");
+        input?.focus();
+        input?.select();
     }
 
-    _onGmDispositionChange(event)
+    #onInput(event)
     {
-        event.currentTarget.dataset.value = event.currentTarget.value;
-    }
-
-    _cycleCell(btn, direction)
-    {
-        const ORDER = [1, 0, -1, -2];
-        const cur = Number(btn.dataset.value);
-        const idx = ORDER.indexOf(cur);
-        const step = direction > 0 ? 1 : ORDER.length - 1;
-        const next = ORDER[(idx + step) % ORDER.length];
-        this._setCellValue(btn, next);
-    }
-
-    _setCellValue(btn, value)
-    {
-        const GLYPH = { 1: 'F', 0: 'N', '-1': 'H', '-2': 'S' };
-        const form = btn.form ?? btn.closest('form');
-        const rowId = btn.dataset.rowId;
-        const colId = btn.dataset.colId;
-        const apply = (rId, cId) =>
+        const target = event.target;
+        const team = this.#current();
+        if (!team)
+            return;
+        if ("teamName" in target.dataset)
         {
-            const b = form.querySelector(`.disp-cell[data-row-id="${rId}"][data-col-id="${cId}"]`);
-            const h = form.querySelector(`input[type="hidden"][name="matrix.${rId}.${cId}"]`);
-            if (b)
-            {
-                b.dataset.value = String(value);
-                b.textContent = GLYPH[String(value)] ?? '?';
-            }
-            if (h)
-                h.value = String(value);
-        };
-        apply(rowId, colId);
-        const symmetric = form.querySelector('.symmetric-toggle')?.checked;
-        if (symmetric && rowId !== colId)
-            apply(colId, rowId);
-    }
-
-    _openSetAllMenu(headerEl, axis)
-    {
-        const root = headerEl.closest('form');
-        root.querySelectorAll('.header-setall-menu').forEach(m => m.remove());
-
-        const GLYPH = { 1: 'F', 0: 'N', '-1': 'H', '-2': 'S' };
-        const LABEL = { 1: 'Friendly', 0: 'Neutral', '-1': 'Hostile', '-2': 'Secret' };
-        const menu = document.createElement('div');
-        menu.className = 'header-setall-menu';
-        for (const v of [1, 0, -1, -2])
-        {
-            const b = document.createElement('button');
-            b.type = 'button';
-            b.dataset.value = String(v);
-            b.textContent = GLYPH[String(v)];
-            b.title = LABEL[String(v)];
-            b.addEventListener('click', (e) =>
-            {
-                e.stopPropagation();
-                const teamId = headerEl.dataset[axis === 'row' ? 'rowId' : 'colId'];
-                this._setAll(root, axis, teamId, v);
-                menu.remove();
-            });
-            menu.appendChild(b);
+            team.name = target.value;
+            for (const node of this.element.querySelectorAll(`[data-name-of="${team.id}"]`))
+                node.textContent = team.name;
         }
-        document.body.appendChild(menu);
-        const rect = headerEl.getBoundingClientRect();
-        menu.style.left = `${Math.round(rect.left + window.scrollX)}px`;
-        menu.style.top = `${Math.round(rect.bottom + window.scrollY + 4)}px`;
-        const closeOnOutside = (ev) =>
+        else if (target.dataset.teamColor)
         {
-            if (!menu.contains(ev.target))
-            {
-                menu.remove();
-                document.removeEventListener('mousedown', closeOnOutside, true);
-            }
-        };
-        setTimeout(() => document.addEventListener('mousedown', closeOnOutside, true), 0);
+            const key = target.dataset.teamColor;
+            team[key] = target.value;
+            for (const node of this.element.querySelectorAll(`[data-chip-of="${team.id}"]`))
+                node.style.setProperty(key === "color" ? "--ci" : "--ce", target.value);
+            this.element.querySelector(`[data-preview="${key}"]`)?.setAttribute("stroke", target.value);
+        }
     }
 
-    _setAll(form, axis, teamId, value)
+    #onKeyDown(event)
     {
-        const selector = axis === 'row'
-            ? `.disp-cell[data-row-id="${teamId}"]`
-            : `.disp-cell[data-col-id="${teamId}"]`;
-        form.querySelectorAll(selector).forEach(btn =>
+        if (event.key === "Enter" && event.target.matches?.("input[type='text']"))
+            event.preventDefault();
+    }
+
+    #move(id, value)
+    {
+        if (!this.#selected || !id)
+            return;
+        this.#setRel(this.#selected, id, value);
+        this.#pick = null;
+        this.render();
+    }
+
+    #onMouseDown(event)
+    {
+        const item = event.target.closest?.("[data-grip]")?.closest(".tf-team-item");
+        if (item)
+            item.draggable = true;
+    }
+
+    #clearDraggable()
+    {
+        for (const item of this.element.querySelectorAll(".tf-team-item[draggable='true']"))
+            item.draggable = false;
+    }
+
+    #onDragStart(event)
+    {
+        const chip = event.target.closest?.(".tf-team-chip");
+        if (chip)
         {
-            // Skip diagonal: a team's view of itself stays Friendly.
-            if (btn.dataset.rowId === btn.dataset.colId)
+            this.#dragChip = chip.dataset.teamId;
+            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData("text/plain", this.#dragChip);
+            return;
+        }
+        const item = event.target.closest?.(".tf-team-item");
+        if (!item?.draggable)
+            return;
+        this.#dragTeam = item.dataset.teamId;
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", this.#dragTeam);
+        item.classList.add("dragging");
+    }
+
+    #onDragOver(event)
+    {
+        if (this.#dragChip)
+        {
+            const lane = event.target.closest?.(".tf-lane");
+            for (const other of this.element.querySelectorAll(".tf-lane.drop"))
+            {
+                if (other !== lane)
+                    other.classList.remove("drop");
+            }
+            if (!lane)
                 return;
-            this._setCellValue(btn, value);
-        });
-    }
-
-    _setCrosshair(root, cell, cols, on)
-    {
-        const rowIdx = cell.dataset.rowIdx;
-        const colIdx = cell.dataset.colIdx;
-        const tr = root.querySelector(`.matrix tbody tr[data-row-idx="${rowIdx}"]`);
-        tr?.classList.toggle('row-hovered', on);
-        const colHeader = cols.find(th => th.dataset.colIdx === colIdx);
-        colHeader?.classList.toggle('col-hovered', on);
-        root.querySelectorAll(`.matrix-cell[data-col-idx="${colIdx}"]`)
-            .forEach(td => td.classList.toggle('col-hovered', on));
-    }
-
-    async _onAddTeam(event)
-    {
-        const teams = game.settings.get("token-factions", "team-setup") || [];
-        const newId = foundry.utils.randomID();
-        teams.push({ id: newId, name: "New Team", color: "#ffffff", colorEx: "#000000", gmDisposition: 0 });
-        await game.settings.set("token-factions", "team-setup", teams);
-        this.render();
-    }
-
-    async _onRemoveTeam(event)
-    {
-        const idx = event.currentTarget.dataset.index;
-        const teams = game.settings.get("token-factions", "team-setup") || [];
-        const removed = teams[idx];
-        teams.splice(idx, 1);
-        await game.settings.set("token-factions", "team-setup", teams);
-
-        if (removed?.id)
-        {
-            await AdvancedFactions._cleanupTeamReferences(removed.id);
+            event.preventDefault();
+            lane.classList.add("drop");
+            return;
         }
+        if (!this.#dragTeam)
+            return;
+        const item = event.target.closest?.(".tf-team-item");
+        if (!item)
+            return;
+        event.preventDefault();
+        const rect = item.getBoundingClientRect();
+        const after = event.clientY > rect.top + rect.height / 2;
+        for (const node of this.element.querySelectorAll(".drop-before, .drop-after"))
+            node.classList.remove("drop-before", "drop-after");
+        item.classList.add(after ? "drop-after" : "drop-before");
+    }
+
+    #onDrop(event)
+    {
+        if (this.#dragChip)
+        {
+            event.preventDefault();
+            const lane = event.target.closest?.(".tf-lane");
+            const id = this.#dragChip;
+            this.#dragChip = null;
+            if (lane)
+                this.#move(id, Number(lane.dataset.lane));
+            else
+                this.render();
+            return;
+        }
+        if (!this.#dragTeam)
+            return;
+        event.preventDefault();
+        const item = event.target.closest?.(".tf-team-item");
+        const id = this.#dragTeam;
+        this.#dragTeam = null;
+        if (item && item.dataset.teamId !== id)
+            this.#reorder(id, item.dataset.teamId, item.classList.contains("drop-after"));
         this.render();
+    }
+
+    #onDragEnd()
+    {
+        if (!this.#dragChip && !this.#dragTeam)
+            return;
+        this.#dragChip = null;
+        this.#dragTeam = null;
+        this.render();
+    }
+
+    #reorder(id, targetId, after)
+    {
+        const from = this.#teams.findIndex(team => team.id === id);
+        if (from < 0)
+            return;
+        const [moved] = this.#teams.splice(from, 1);
+        let to = this.#teams.findIndex(team => team.id === targetId);
+        if (to < 0)
+        {
+            this.#teams.splice(from, 0, moved);
+            return;
+        }
+        if (after)
+            to++;
+        this.#teams.splice(to, 0, moved);
+    }
+
+    static #onAddTeam()
+    {
+        const id = foundry.utils.randomID();
+        this.#teams.push({ id, name: "New Team", color: "#ffffff", colorEx: "#000000", gmDisposition: 0 });
+        this.#selected = id;
+        this.#pick = null;
+        this.#pendingDelete = null;
+        this.#focusName = true;
+        this.render();
+    }
+
+    static #onSelectTeam(event, target)
+    {
+        this.#selected = target.dataset.teamId;
+        this.#pick = null;
+        this.#pendingDelete = null;
+        this.render();
+    }
+
+    static #onSetDefault(event, target)
+    {
+        const team = this.#current();
+        if (!team)
+            return;
+        team.gmDisposition = Number(target.dataset.value);
+        this.render();
+    }
+
+    static #onSetMembers(event, target)
+    {
+        const id = this.#selected;
+        if (!id)
+            return;
+        this.#matrix[id] ??= {};
+        this.#matrix[id][id] = Number(target.dataset.value);
+        this.render();
+    }
+
+    static #onSetAll(event, target)
+    {
+        const id = this.#selected;
+        if (!id)
+            return;
+        const value = Number(target.dataset.value);
+        for (const other of this.#teams)
+            this.#setRel(id, other.id, value);
+        this.#pick = null;
+        this.render();
+    }
+
+    static #onToggleMirror()
+    {
+        this.#mirror = !this.#mirror;
+        this.render();
+        try
+        {
+            globalThis.localStorage?.setItem("tf-mirror-pairs", this.#mirror ? "1" : "0");
+        }
+        catch
+        {
+            return;
+        }
+    }
+
+    static #onPickChip(event, target)
+    {
+        const id = target.dataset.teamId;
+        this.#pick = this.#pick === id ? null : id;
+        this.render();
+    }
+
+    static #onDropOnLane(event, target)
+    {
+        if (this.#pick)
+            this.#move(this.#pick, Number(target.dataset.lane));
+    }
+
+    static #onDeleteTeam()
+    {
+        this.#pendingDelete = this.#selected;
+        this.render();
+    }
+
+    static #onConfirmDelete()
+    {
+        const id = this.#pendingDelete;
+        if (!id)
+            return;
+        this.#teams = this.#teams.filter(team => team.id !== id);
+        delete this.#matrix[id];
+        for (const row of Object.values(this.#matrix))
+        {
+            if (row)
+                delete row[id];
+        }
+        this.#removed.add(id);
+        this.#pendingDelete = null;
+        this.#pick = null;
+        this.#selected = this.#teams[0]?.id ?? null;
+        this.render();
+    }
+
+    static #onCancelDelete()
+    {
+        this.#pendingDelete = null;
+        this.render();
+    }
+
+    static async #onTurnOnTeams()
+    {
+        await game.settings.set("token-factions", "teams-enabled", true);
+        this.render();
+    }
+
+    static async #onSubmit()
+    {
+        const teams = this.#teams.map(team => ({
+            id: team.id,
+            name: team.name,
+            color: team.color,
+            colorEx: team.colorEx || "#000000",
+            gmDisposition: Number(team.gmDisposition)
+        }));
+        const matrix = {};
+        for (const viewer of teams)
+        {
+            matrix[viewer.id] = {};
+            for (const target of teams)
+                matrix[viewer.id][target.id] = this.#rel(viewer.id, target.id);
+        }
+        await game.settings.set("token-factions", "team-setup", teams);
+        await game.settings.set("token-factions", "disposition-matrix", matrix);
+        for (const id of this.#removed)
+            await AdvancedFactions._cleanupTeamReferences(id);
+    }
+}
+
+export class TeamPicker extends HandlebarsApplicationMixin(ApplicationV2)
+{
+    static DEFAULT_OPTIONS = {
+        classes: ["tf-team-picker"],
+        window: { title: "Assign Team", icon: "fas fa-users" },
+        position: { width: 300, height: "auto" },
+        actions: {
+            pick: TeamPicker.#onPick,
+            apply: TeamPicker.#onApply
+        }
+    };
+
+    static PARTS = {
+        body: {
+            template: "modules/token-factions/templates/team-picker.html",
+            scrollable: [".tf-palette-list"]
+        }
+    };
+
+    #actors = [];
+    #label = "";
+    #kind = "actor";
+    #selected = null;
+    #placed = true;
+    #setDisposition = true;
+
+    constructor(options = {})
+    {
+        super(options);
+        this.#actors = options.actors ?? [];
+        this.#label = options.label ?? "";
+        this.#kind = options.kind ?? "actor";
+    }
+
+    static openFor({ actors, label, kind, anchor })
+    {
+        for (const app of foundry.applications.instances.values())
+        {
+            if (app instanceof TeamPicker)
+                app.close();
+        }
+        const width = 300;
+        const rect = anchor?.getBoundingClientRect?.();
+        const position = { width };
+        if (rect)
+        {
+            position.left = Math.max(8, rect.left - width - 12);
+            position.top = Math.max(8, Math.min(rect.top - 40, window.innerHeight - 460));
+        }
+        const title = AdvancedFactions.teamsEnabled() ? "Assign Team" : "Set Disposition";
+        return new TeamPicker({ actors, label, kind, position, window: { title } }).render({ force: true });
+    }
+
+    #currentValue()
+    {
+        const teamsOn = AdvancedFactions.teamsEnabled();
+        const values = new Set(this.#actors.map(actor => (teamsOn
+            ? AdvancedFactions._getTeam(actor) || TF_NO_TEAM
+            : String(actor.prototypeToken?.disposition ?? 0))));
+        return values.size === 1 ? [...values][0] : null;
+    }
+
+    async _prepareContext()
+    {
+        const teamsOn = AdvancedFactions.teamsEnabled();
+        const current = this.#currentValue();
+        if (this.#selected === null)
+            this.#selected = current ?? (teamsOn ? TF_NO_TEAM : "0");
+        const count = this.#actors.length;
+        const placed = AdvancedFactions.placedTokensOf(this.#actors).length;
+        const placedLabel = placed === 1 ? "1 placed token" : `${placed} placed tokens`;
+        const sub = this.#kind === "folder"
+            ? `Folder · ${count === 1 ? "1 actor" : `${count} actors`} · ${placedLabel}`
+            : `Actor · ${placedLabel}`;
+        const target = count === 1 ? this.#actors[0].name : `${count} actors`;
+        return {
+            teamsOn,
+            dispositionColors: AdvancedFactions.dispositionCssVars(),
+            icon: this.#kind === "folder" ? "fa-folder-open" : "fa-user",
+            label: this.#label,
+            sub,
+            rows: AdvancedFactions.pickerRows(current).map(row => ({ ...row, selected: row.value === this.#selected })),
+            placed: this.#placed,
+            setDisposition: this.#setDisposition,
+            applyLabel: `${teamsOn ? "Assign to" : "Set for"} ${target}`
+        };
+    }
+
+    _onRender(context, options)
+    {
+        super._onRender(context, options);
+        for (const input of this.element.querySelectorAll("[data-tf-option]"))
+        {
+            input.addEventListener("change", () =>
+            {
+                if (input.dataset.tfOption === "placed")
+                    this.#placed = input.checked;
+                else
+                    this.#setDisposition = input.checked;
+            });
+        }
+    }
+
+    static #onPick(event, target)
+    {
+        this.#selected = target.dataset.value;
+        this.render();
+    }
+
+    static async #onApply()
+    {
+        if (!this.#actors.length || this.#selected === null)
+            return;
+        if (AdvancedFactions.teamsEnabled())
+            await AdvancedFactions.assignTeamToActors(this.#actors, this.#selected, { placed: this.#placed, setDisposition: this.#setDisposition });
+        else
+            await AdvancedFactions.setDispositionOnActors(this.#actors, Number(this.#selected), { placed: this.#placed });
+        this.close();
     }
 }
 
 export const AdvancedFactions = {
+    teamsEnabled: () =>
+    {
+        try
+        {
+            return game.settings.get("token-factions", "teams-enabled") === true;
+        }
+        catch
+        {
+            return false;
+        }
+    },
+
     getTeams: () =>
     {
         return game.settings.get("token-factions", "team-setup") || [];
@@ -262,6 +624,15 @@ export const AdvancedFactions = {
     getMatrix: () =>
     {
         return game.settings.get("token-factions", "disposition-matrix") || {};
+    },
+
+    relation: (viewerId, targetId, matrix = AdvancedFactions.getMatrix()) =>
+    {
+        const self = viewerId === targetId;
+        const value = self ? matrix[viewerId]?.[viewerId] : matrix[viewerId]?.[targetId] ?? matrix[targetId]?.[viewerId];
+        if (value === undefined || value === null || value === "")
+            return self ? 1 : 0;
+        return Number(value);
     },
 
     /**
@@ -300,17 +671,18 @@ export const AdvancedFactions = {
             return null;
         };
 
-        if (game.settings.get("token-factions", "color-from") === "advanced-factions")
+        const useTeams = AdvancedFactions.teamsEnabled();
+        if (useTeams)
         {
             const teamA = AdvancedFactions._getTeam(actorA);
             const teamB = AdvancedFactions._getTeam(actorB);
 
             if (teamA && teamB)
             {
-                if (teamA === teamB)
-                    return CONST.TOKEN_DISPOSITIONS.FRIENDLY;
-
                 const matrix = AdvancedFactions.getMatrix();
+                if (teamA === teamB)
+                    return AdvancedFactions.relation(teamA, teamA, matrix);
+
                 if (matrix[teamA] && matrix[teamA][teamB] !== undefined)
                 {
                     return parseInt(matrix[teamA][teamB]);
@@ -321,34 +693,26 @@ export const AdvancedFactions = {
                     return parseInt(matrix[teamB][teamA]);
                 }
             }
-            else
-            {
-                return getDisp(actorB);
-            }
         }
 
-        const dispA = getTeamDisp(AdvancedFactions._getTeam(actorA)) ?? getDisp(actorA);
-        const dispB = getTeamDisp(AdvancedFactions._getTeam(actorB)) ?? getDisp(actorB);
+        const dispA = (useTeams ? getTeamDisp(AdvancedFactions._getTeam(actorA)) : null) ?? getDisp(actorA);
+        const dispB = (useTeams ? getTeamDisp(AdvancedFactions._getTeam(actorB)) : null) ?? getDisp(actorB);
 
         const HOSTILE = CONST.TOKEN_DISPOSITIONS.HOSTILE;
         const SECRET = CONST.TOKEN_DISPOSITIONS.SECRET;
         const FRIENDLY = CONST.TOKEN_DISPOSITIONS.FRIENDLY;
         const NEUTRAL = CONST.TOKEN_DISPOSITIONS.NEUTRAL;
 
-        const isBadA = dispA === HOSTILE || dispA === SECRET;
-        const isBadB = dispB === HOSTILE || dispB === SECRET;
+        // A Friendly or Neutral viewer sees the target's own disposition
+        if (dispA !== HOSTILE && dispA !== SECRET)
+            return dispB;
 
-        const isGoodA = dispA === FRIENDLY || dispA === NEUTRAL;
-        const isGoodB = dispB === FRIENDLY || dispB === NEUTRAL;
-
-        // If one is Good and one is Bad -> HOSTILE
-        if ((isGoodA && isBadB) || (isBadA && isGoodB))
-        {
-            return CONST.TOKEN_DISPOSITIONS.HOSTILE;
-        }
-
-        // Otherwise (Good+Good or Bad+Bad) -> FRIENDLY
-        return CONST.TOKEN_DISPOSITIONS.FRIENDLY;
+        // A Hostile or Secret viewer sees it flipped, Neutral stays Neutral
+        if (dispB === FRIENDLY)
+            return HOSTILE;
+        if (dispB === HOSTILE || dispB === SECRET)
+            return FRIENDLY;
+        return NEUTRAL;
     },
 
     _getTeam: (doc) =>
@@ -362,7 +726,7 @@ export const AdvancedFactions = {
 
         let flag = doc.getFlag ? doc.getFlag("token-factions", "team") : null;
         if (flag)
-            return flag;
+            return flag === TF_NO_TEAM ? null : flag;
 
         if (doc.documentName === "Token" && doc.actor)
         {
@@ -374,7 +738,7 @@ export const AdvancedFactions = {
         {
             flag = doc.prototypeToken?.flags?.["token-factions"]?.team;
             if (flag)
-                return flag;
+                return flag === TF_NO_TEAM ? null : flag;
         }
 
         return null;
@@ -574,9 +938,8 @@ export const AdvancedFactions = {
             if (this.controlled || (this.isOwner && !game.user.isGM))
                 return _finalize(this, _customColor("controlledColor", colors.CONTROLLED));
 
-            const colorFrom = game.settings.get("token-factions", "color-from");
             let disposition;
-            if (colorFrom === "advanced-factions")
+            if (AdvancedFactions.teamsEnabled())
             {
                 const viewerActor = game.user.character || canvas.tokens.controlled[0]?.actor;
                 if (game.user.isGM)
@@ -629,245 +992,343 @@ export const AdvancedFactions = {
         };
     },
 
+    dispositionColor: (value) =>
+    {
+        const keys = { "1": ["friendlyColor", "#43dfdf"], "0": ["neutralColor", "#f1d836"], "-1": ["hostileColor", "#e72124"] };
+        const entry = keys[String(value)];
+        if (entry)
+        {
+            try
+            {
+                return game.settings.get("token-factions", entry[0]) || entry[1];
+            }
+            catch
+            {
+                return entry[1];
+            }
+        }
+        const secret = CONFIG.Canvas.dispositionColors?.SECRET;
+        return secret === undefined || secret === null ? "#a612d3" : Color.from(secret).css;
+    },
+
+    dispositionCssVars: () =>
+    {
+        return TF_DISPOSITIONS.map(entry => `--tf-${entry.key}: ${AdvancedFactions.dispositionColor(entry.value)};`).join(" ");
+    },
+
+    ringState: (tokenDoc) =>
+    {
+        const value = tokenDoc.getFlag("token-factions", "disableBorder");
+        if (value === "on" || value === "combat")
+            return value;
+        if (value === "off" || value === true)
+            return "off";
+        return "default";
+    },
+
+    hudTargets: (token) =>
+    {
+        const controlled = canvas.tokens.controlled;
+        const list = controlled.includes(token) ? controlled : [token];
+        return list.map(placeable => placeable.document);
+    },
+
+    placedTokensOf: (actors) =>
+    {
+        const ids = new Set(actors.map(actor => actor.id));
+        return game.scenes.contents.flatMap(scene => scene.tokens.contents.filter(tokenDoc => ids.has(tokenDoc.actorId)));
+    },
+
+    updateTokens: async (tokenDocs, changes) =>
+    {
+        const byScene = new Map();
+        for (const tokenDoc of tokenDocs)
+        {
+            const scene = tokenDoc.parent;
+            if (!scene)
+                continue;
+            if (!byScene.has(scene))
+                byScene.set(scene, []);
+            byScene.get(scene).push({ _id: tokenDoc.id, ...changes });
+        }
+        for (const [scene, updates] of byScene.entries())
+            await scene.updateEmbeddedDocuments("Token", updates);
+    },
+
+    _updateLinkedPrototypes: async (tokenDocs, protoChanges) =>
+    {
+        const actorIds = new Set(tokenDocs.filter(tokenDoc => tokenDoc.actorLink && tokenDoc.actorId).map(tokenDoc => tokenDoc.actorId));
+        const updates = [...actorIds].filter(id => game.actors.has(id)).map(id => ({ _id: id, ...protoChanges }));
+        if (updates.length)
+            await Actor.updateDocuments(updates);
+    },
+
+    assignTeamToTokens: async (tokenDocs, teamId) =>
+    {
+        const team = AdvancedFactions.getTeams().find(entry => entry.id === teamId);
+        const changes = { "flags.token-factions.team": teamId };
+        if (team)
+            changes.disposition = Number(team.gmDisposition);
+        await AdvancedFactions.updateTokens(tokenDocs, changes);
+    },
+
+    syncLinkedPrototype: (tokenDoc, change, userId) =>
+    {
+        if (userId !== game.user.id || !tokenDoc.actorLink || !tokenDoc.actor)
+            return;
+        const team = change.flags?.["token-factions"]?.team;
+        if (team === undefined)
+            return;
+        const protoChanges = { "prototypeToken.flags.token-factions.team": team };
+        if (change.disposition !== undefined)
+            protoChanges["prototypeToken.disposition"] = change.disposition;
+        tokenDoc.actor.update(protoChanges);
+    },
+
+    setDispositionOnTokens: async (tokenDocs, disposition) =>
+    {
+        await AdvancedFactions.updateTokens(tokenDocs, { disposition });
+        await AdvancedFactions._updateLinkedPrototypes(tokenDocs, { "prototypeToken.disposition": disposition });
+    },
+
+    assignTeamToActors: async (actors, teamId, { placed = true, setDisposition = true } = {}) =>
+    {
+        const team = AdvancedFactions.getTeams().find(entry => entry.id === teamId);
+        const withDisposition = !!team && setDisposition;
+        const protoChanges = { "prototypeToken.flags.token-factions.team": teamId };
+        if (withDisposition)
+            protoChanges["prototypeToken.disposition"] = Number(team.gmDisposition);
+        await Actor.updateDocuments(actors.map(actor => ({ _id: actor.id, ...protoChanges })));
+        if (!placed)
+            return;
+        const changes = { "flags.token-factions.team": teamId };
+        if (withDisposition)
+            changes.disposition = Number(team.gmDisposition);
+        await AdvancedFactions.updateTokens(AdvancedFactions.placedTokensOf(actors), changes);
+    },
+
+    setDispositionOnActors: async (actors, disposition, { placed = true } = {}) =>
+    {
+        await Actor.updateDocuments(actors.map(actor => ({ _id: actor.id, "prototypeToken.disposition": disposition })));
+        if (placed)
+            await AdvancedFactions.updateTokens(AdvancedFactions.placedTokensOf(actors), { disposition });
+    },
+
+    setRingMode: async (tokenDocs, mode) =>
+    {
+        await AdvancedFactions.updateTokens(tokenDocs, { "flags.token-factions.disableBorder": mode });
+    },
+
+    pickerRows: (current) =>
+    {
+        if (!AdvancedFactions.teamsEnabled())
+        {
+            return TF_DISPOSITIONS.map(entry => ({
+                value: String(entry.value),
+                name: entry.label,
+                color: AdvancedFactions.dispositionColor(entry.value),
+                colorEx: "#000000",
+                current: current === String(entry.value)
+            }));
+        }
+        const rows = [{ value: TF_NO_TEAM, name: "No team", none: true, current: current === TF_NO_TEAM }];
+        for (const team of AdvancedFactions.getTeams())
+        {
+            const def = tfDisposition(team.gmDisposition);
+            rows.push({
+                value: team.id,
+                name: team.name,
+                color: team.color,
+                colorEx: team.colorEx || "#000000",
+                defKey: def.key,
+                defShort: def.short,
+                current: current === team.id
+            });
+        }
+        return rows;
+    },
+
+    _hudBarColor: (tokenDoc) =>
+    {
+        if (!AdvancedFactions.teamsEnabled())
+            return AdvancedFactions.dispositionColor(tokenDoc.disposition);
+        const teamId = AdvancedFactions._getTeam(tokenDoc);
+        const team = teamId ? AdvancedFactions.getTeams().find(entry => entry.id === teamId) : null;
+        return team?.color ?? "transparent";
+    },
+
+    _paletteHtml: (targets) =>
+    {
+        const escape = foundry.utils.escapeHTML;
+        const teamsOn = AdvancedFactions.teamsEnabled();
+        const values = new Set(targets.map(tokenDoc => (teamsOn ? AdvancedFactions._getTeam(tokenDoc) || TF_NO_TEAM : String(tokenDoc.disposition))));
+        const current = values.size === 1 ? [...values][0] : null;
+        const rows = AdvancedFactions.pickerRows(current).map(row =>
+        {
+            const chip = row.none ? '<span class="tf-chip tf-none"></span>' : `<span class="tf-chip" style="--ci: ${escape(row.color)}; --ce: ${escape(row.colorEx)};"></span>`;
+            const mark = row.current ? '<span class="tf-muted">current</span>' : "";
+            const pill = row.defKey ? `<span class="tf-pill tf-sm tf-${row.defKey}">${row.defShort}</span>` : "";
+            return `<button type="button" class="tf-palette-row${row.current ? " current" : ""}" data-tf-pick="${escape(row.value)}">${chip}<span class="tf-palette-name">${escape(row.name)}</span>${mark}${pill}</button>`;
+        }).join("");
+        const ring = AdvancedFactions.ringState(targets[0]);
+        const ringLabel = TF_RING_MODES.find(mode => mode.value === ring)?.label ?? "";
+        const ringButtons = TF_RING_MODES.map(mode => `<button type="button" class="${mode.value === ring ? "on" : ""}" data-tf-ring="${mode.value}" aria-label="Ring: ${mode.label}" aria-pressed="${mode.value === ring}"><i class="fas ${mode.icon}"></i></button>`).join("");
+        const count = targets.length === 1 ? "1 token" : `${targets.length} tokens`;
+        return `<div class="tf-palette-head"><span>${teamsOn ? "Team" : "Disposition"}</span><span class="tf-muted">${count}</span></div>`
+            + `<div class="tf-palette-list">${rows}</div>`
+            + `<div class="tf-palette-foot"><span class="tf-muted">Ring: ${ringLabel}</span><div class="tf-ring-modes">${ringButtons}</div></div>`;
+    },
+
+    _renderHudPalette: (wrap, token) =>
+    {
+        wrap.querySelector(".tf-palette")?.remove();
+        if (tfHudPaletteToken !== token.id)
+            return;
+        const targets = AdvancedFactions.hudTargets(token);
+        const palette = document.createElement("div");
+        palette.className = "tf-palette";
+        palette.setAttribute("style", AdvancedFactions.dispositionCssVars());
+        palette.innerHTML = AdvancedFactions._paletteHtml(targets);
+        wrap.append(palette);
+        palette.addEventListener("click", async (event) =>
+        {
+            event.preventDefault();
+            event.stopPropagation();
+            const row = event.target.closest("[data-tf-pick]");
+            if (row)
+            {
+                if (AdvancedFactions.teamsEnabled())
+                    await AdvancedFactions.assignTeamToTokens(targets, row.dataset.tfPick);
+                else
+                    await AdvancedFactions.setDispositionOnTokens(targets, Number(row.dataset.tfPick));
+                return;
+            }
+            const ring = event.target.closest("[data-tf-ring]");
+            if (ring)
+                await AdvancedFactions.setRingMode(targets, ring.dataset.tfRing);
+        });
+    },
+
+    closeHudPalette: () =>
+    {
+        tfHudPaletteToken = null;
+    },
+
     renderTokenHUD: (app, htmlOrEl) =>
     {
-        const html = htmlOrEl instanceof HTMLElement ? $(htmlOrEl) : htmlOrEl;
-        if (!game.user.isGM)
-            return;
-
+        const root = htmlOrEl instanceof HTMLElement ? htmlOrEl : htmlOrEl?.[0];
         const token = app.object;
-        const currentTeamId = AdvancedFactions._getTeam(token) || "";
-        const teams = AdvancedFactions.getTeams();
-        const _factionState = (t) =>
+        if (!root || !token?.document || !game.user.isGM)
+            return;
+        const read = (key, fallback) =>
         {
-            const v = t.document.getFlag("token-factions", "disableBorder");
-            if (v === "on")
-                return "on";
-            if (v === "combat")
-                return "combat";
-            if (v === "off" || v === true)
-                return "off";
-            return "default";
-        };
-        const borderState = _factionState(token);
-        let stateTip;
-        if (borderState === "default")
-            stateTip = "Default (world setting)";
-        else if (borderState === "on")
-            stateTip = "Forced On";
-        else if (borderState === "combat")
-            stateTip = "Only In Combat";
-        else
-            stateTip = "Forced Off";
-
-
-        const button = $(`
-            <div class="control-icon faction-selector faction-border-${borderState} ${borderState === "off" ? "active" : ""}" title="Left-Click: Team\nRight-Click: Cycle Border (${stateTip})">
-                <i class="fas fa-users"></i>
-            </div>
-        `);
-
-
-        button.click(async (event) =>
-        {
-            const template = `
-                <div class="form-group" style="padding-bottom: 10px;">
-                    <select name="teamId" style="width: 100%; text-align: center; font-size: 1.1em;">
-                        <option value="">(None)</option>
-                        ${teams.map(t => `<option value="${t.id}" style="color: ${t.color}; font-weight: bold;" ${t.id === currentTeamId ? "selected" : ""}>${t.name}</option>`).join("")}
-                    </select>
-                </div>
-            `;
-
-            const d = new Dialog({
-                title: "Switch Team",
-                content: template,
-                buttons: {},
-                render: (html) =>
-                {
-                    html.find('[name="teamId"]').change(async (e) =>
-                    {
-                        const newTeamId = e.target.value;
-
-
-                        const tokens = canvas.tokens.controlled.length > 0 ? canvas.tokens.controlled : [token];
-
-                        for (const t of tokens)
-                        {
-                            const updateData = {
-                                "flags.token-factions.team": newTeamId
-                            };
-
-
-                            const team = teams.find(team => team.id === newTeamId);
-                            if (team && team.gmDisposition !== undefined)
-                            {
-
-                                updateData.disposition = parseInt(team.gmDisposition);
-                            }
-
-                            await t.document.update(updateData);
-
-
-                            if (t.document.isLinked)
-                            {
-                                const protoUpdate = {
-                                    "prototypeToken.flags.token-factions.team": newTeamId
-                                };
-                                if (updateData.disposition !== undefined)
-                                {
-                                    protoUpdate["prototypeToken.disposition"] = updateData.disposition;
-                                }
-                                await t.actor.update(protoUpdate);
-                            }
-
-                            t.refresh();
-                        }
-                        d.close();
-                    });
-                }
-            });
-            d.render(true);
-        });
-
-
-        button.contextmenu(async (event) =>
-        {
-            const current = _factionState(token);
-            const next = current === "default" ? "off" : current === "off" ? "on" : "default";
-
-
-            const tokens = canvas.tokens.controlled.length > 0 ? canvas.tokens.controlled : [token];
-
-            for (const t of tokens)
+            try
             {
-                await t.document.setFlag("token-factions", "disableBorder", next);
-                t.refresh();
+                return game.settings.get("token-factions", key);
             }
-
-
-            const btn = event.currentTarget;
-            btn.classList.remove("faction-border-default", "faction-border-off", "faction-border-on", "active");
-            btn.classList.add(`faction-border-${next}`);
-            if (next === "off")
-                btn.classList.add("active");
+            catch
+            {
+                return fallback;
+            }
+        };
+        if (!read("hudEnable", true))
+            return;
+        if (tfHudPaletteToken && tfHudPaletteToken !== token.id)
+            tfHudPaletteToken = null;
+        const left = String(read("hudColumn", "Right")).toLowerCase() === "left";
+        const column = root.querySelector(left ? ".col.left" : ".col.right");
+        if (!column)
+            return;
+        const wrap = document.createElement("div");
+        wrap.className = left ? "tf-hud-wrap tf-hud-left" : "tf-hud-wrap";
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "control-icon tf-hud-button";
+        button.setAttribute("aria-label", AdvancedFactions.teamsEnabled() ? "Team" : "Disposition");
+        button.innerHTML = '<i class="fas fa-users"></i>';
+        button.style.setProperty("--tf-bar", AdvancedFactions._hudBarColor(token.document));
+        button.classList.toggle("active", tfHudPaletteToken === token.id);
+        wrap.append(button);
+        if (String(read("hudTopBottom", "Bottom")).toLowerCase() === "top")
+            column.prepend(wrap);
+        else
+            column.append(wrap);
+        button.addEventListener("click", (event) =>
+        {
+            event.preventDefault();
+            event.stopPropagation();
+            tfHudPaletteToken = tfHudPaletteToken === token.id ? null : token.id;
+            button.classList.toggle("active", tfHudPaletteToken === token.id);
+            AdvancedFactions._renderHudPalette(wrap, token);
         });
-
-
-        html.find('.col.right').append(button);
+        button.addEventListener("contextmenu", (event) =>
+        {
+            event.preventDefault();
+            event.stopPropagation();
+            const order = TF_RING_MODES.map(mode => mode.value);
+            const next = order[(order.indexOf(AdvancedFactions.ringState(token.document)) + 1) % order.length];
+            AdvancedFactions.setRingMode(AdvancedFactions.hudTargets(token), next);
+        });
+        AdvancedFactions._renderHudPalette(wrap, token);
     },
 
     addFolderContextOptions: (html, options) =>
     {
-        options.push({
-            name: "Assign Team",
-            icon: '<i class="fas fa-users"></i>',
-            condition: () => game.user.isGM,
-            callback: (header) =>
+        const open = (header) =>
+        {
+            const el = header instanceof HTMLElement ? header : header[0];
+            const folderEl = el.closest(".directory-item") ?? el.closest("[data-folder-id]");
+            const folder = game.folders.get(folderEl?.dataset?.folderId);
+            if (!folder)
+                return;
+            const actors = AdvancedFactions._recursivelyGetActors(folder);
+            if (!actors.length)
             {
-                const el = header instanceof HTMLElement ? header : header[0];
-                const folderEl = el.closest(".directory-item") ?? el.closest("[data-folder-id]");
-                const folderId = folderEl?.dataset?.folderId;
-                const folder = game.folders.get(folderId);
-                const teams = AdvancedFactions.getTeams();
-
-                if (!folder)
-                    return;
-
-                const template = `
-                    <div class="form-group" style="padding-bottom: 10px;">
-                        <p>Assign team to all actors in <strong>${folder.name}</strong> (and subfolders)?</p>
-                        <select name="teamId" style="width: 100%; text-align: center; font-size: 1.1em;">
-                            <option value="">(None / Clear)</option>
-                            ${teams.map(t => `<option value="${t.id}" style="color: ${t.color}; font-weight: bold;">${t.name}</option>`).join("")}
-                        </select>
-                    </div>
-                `;
-
-                const d = new Dialog({
-                    title: "Assign Team to Folder",
-                    content: template,
-                    buttons: {},
-                    render: (html) =>
-                    {
-                        html.find('[name="teamId"]').change(async (e) =>
-                        {
-                            const newTeamId = e.target.value;
-                            d.close();
-
-
-                            const actorsToUpdate = AdvancedFactions._recursivelyGetActors(folder);
-
-                            if (actorsToUpdate.length === 0)
-                            {
-                                ui.notifications.warn("No actors found in this folder.");
-                                return;
-                            }
-
-                            ui.notifications.info(`Updating ${actorsToUpdate.length} actors...`);
-
-                            const updates = actorsToUpdate.map(a =>
-                            {
-                                return {
-                                    _id: a.id,
-                                    "prototypeToken.flags.token-factions.team": newTeamId
-                                };
-                            });
-
-                            await Actor.updateDocuments(updates);
-                            ui.notifications.info(`Successfully assigned team to ${actorsToUpdate.length} actors.`);
-                        });
-                    }
-                });
-                d.render(true);
+                ui.notifications.warn("No actors found in this folder.");
+                return;
             }
-        });
+            TeamPicker.openFor({ actors, label: folder.name, kind: "folder", anchor: el });
+        };
+        options.push(
+            {
+                name: "Assign Team",
+                icon: '<i class="fas fa-users"></i>',
+                condition: () => game.user.isGM && AdvancedFactions.teamsEnabled(),
+                callback: open
+            },
+            {
+                name: "Set Disposition",
+                icon: '<i class="fas fa-users"></i>',
+                condition: () => game.user.isGM && !AdvancedFactions.teamsEnabled(),
+                callback: open
+            }
+        );
     },
 
     addEntryContextOptions: (app, options) =>
     {
-        options.push({
-            name: "Assign Team",
-            icon: '<i class="fas fa-users"></i>',
-            condition: () => game.user.isGM,
-            callback: (li) =>
+        const open = (li) =>
+        {
+            const el = li instanceof HTMLElement ? li : li[0];
+            const entry = el.closest("[data-entry-id]") ?? el.closest("[data-document-id]");
+            const actor = game.actors.get(entry?.dataset?.entryId ?? entry?.dataset?.documentId);
+            if (actor)
+                TeamPicker.openFor({ actors: [actor], label: actor.name, kind: "actor", anchor: el });
+        };
+        options.push(
             {
-                const el = li instanceof HTMLElement ? li : li[0];
-                const entry = el.closest("[data-entry-id]") ?? el.closest("[data-document-id]");
-                const actor = game.actors.get(entry?.dataset?.entryId ?? entry?.dataset?.documentId);
-                if (!actor)
-                    return;
-                const teams = AdvancedFactions.getTeams();
-                const current = actor.prototypeToken?.flags?.["token-factions"]?.team ?? "";
-
-                const template = `
-                    <div class="form-group" style="padding-bottom: 10px;">
-                        <p>Assign team to <strong>${actor.name}</strong>?</p>
-                        <select name="teamId" style="width: 100%; text-align: center; font-size: 1.1em;">
-                            <option value="">(None / Clear)</option>
-                            ${teams.map(t => `<option value="${t.id}" style="color: ${t.color}; font-weight: bold;" ${t.id === current ? "selected" : ""}>${t.name}</option>`).join("")}
-                        </select>
-                    </div>
-                `;
-
-                const d = new Dialog({
-                    title: "Assign Team to Actor",
-                    content: template,
-                    buttons: {},
-                    render: (html) =>
-                    {
-                        html.find('[name="teamId"]').change(async (e) =>
-                        {
-                            const newTeamId = e.target.value;
-                            d.close();
-                            await actor.update({ "prototypeToken.flags.token-factions.team": newTeamId });
-                            ui.notifications.info(`Assigned team to ${actor.name}.`);
-                        });
-                    }
-                });
-                d.render(true);
+                name: "Assign Team",
+                icon: '<i class="fas fa-users"></i>',
+                condition: () => game.user.isGM && AdvancedFactions.teamsEnabled(),
+                callback: open
+            },
+            {
+                name: "Set Disposition",
+                icon: '<i class="fas fa-users"></i>',
+                condition: () => game.user.isGM && !AdvancedFactions.teamsEnabled(),
+                callback: open
             }
-        });
+        );
     },
 
     _cleanupTeamReferences: async (removedId) =>

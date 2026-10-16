@@ -1,4 +1,4 @@
-import { AdvancedFactions, TeamConfig } from "./scripts/advanced-factions.js";
+import { AdvancedFactions, TeamConfig, TF_DISPOSITIONS, TF_NO_TEAM, TF_RING_MODES, tfDisposition } from "./scripts/advanced-factions.js";
 var __defProp = Object.defineProperty;
 var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
@@ -190,10 +190,35 @@ let Logger = _Logger;
 const registerSettings = /* @__PURE__ */ __name(function () {
   game.settings.registerMenu(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.RESET, {
     name: `${CONSTANTS.MODULE_ID}.setting.reset.name`,
+    label: `${CONSTANTS.MODULE_ID}.setting.reset.label`,
     hint: `${CONSTANTS.MODULE_ID}.setting.reset.hint`,
-    icon: "fas fa-coins",
+    icon: "fas fa-rotate-left",
     type: ResetSettingsDialog,
     restricted: true
+  });
+  game.settings.register(CONSTANTS.MODULE_ID, "teams-enabled", {
+    name: `${CONSTANTS.MODULE_ID}.setting.teams-enabled.name`,
+    hint: `${CONSTANTS.MODULE_ID}.setting.teams-enabled.hint`,
+    scope: "world",
+    config: true,
+    default: false,
+    type: Boolean,
+    onChange: () => {
+      _refreshAllTokenBorders();
+      ui.combat?.render();
+    }
+  });
+  game.settings.register(CONSTANTS.MODULE_ID, "teams-migrated", {
+    scope: "world",
+    config: false,
+    default: false,
+    type: Boolean
+  });
+  game.settings.register(CONSTANTS.MODULE_ID, "opacity-migrated", {
+    scope: "world",
+    config: false,
+    default: false,
+    type: Boolean
   });
   game.settings.register(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.COLOR_FROM, {
     name: `${CONSTANTS.MODULE_ID}.setting.${CONSTANTS.SETTINGS.COLOR_FROM}.name`,
@@ -205,28 +230,28 @@ const registerSettings = /* @__PURE__ */ __name(function () {
     choices: {
       "token-disposition": `${CONSTANTS.MODULE_ID}.setting.color-from.opt.token-disposition`,
       "actor-folder-color": `${CONSTANTS.MODULE_ID}.setting.color-from.opt.actor-folder-color`,
-      "advanced-factions": "Advanced Factions (Teams)"
+      "advanced-factions": `${CONSTANTS.MODULE_ID}.setting.color-from.opt.team-color`
     }
   });
   game.settings.register(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.HOVER_DISPOSITION_VISIBILITY, {
-    name: "Hover Border: Disposition Color",
-    hint: "When to show the disposition color on the hover/control ring. Outside the condition, the token-factions base ring color is used instead.",
+    name: "Selection outline color",
+    hint: "When Foundry's hover and selection outline shows the disposition color. Otherwise it takes the ring color.",
     scope: "world",
     config: true,
     default: CONSTANTS.DEFAULTS.HOVER_DISPOSITION_VISIBILITY,
     type: String,
     choices: {
-      "always": "Always",
-      "combat": "Only in combat",
-      "controlling": "Only while controlling a token",
-      "combat-controlling": "Only in combat while controlling a token",
-      "never": "Never (always use base ring color)"
+      "always": "Disposition, always",
+      "combat": "Disposition in combat",
+      "controlling": "Disposition while controlling a token",
+      "combat-controlling": "Disposition in combat while controlling",
+      "never": "Ring color, always"
     },
     onChange: () => _refreshAllTokenBorders()
   });
   game.settings.register(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.HOVER_BRIGHTNESS, {
-    name: "Hover Brightness",
-    hint: "Percent boost applied to both the hover ring and the faction base ring when hovering a token. 0 = off.",
+    name: "Brighten on hover",
+    hint: "Percent added to the outline and ring of the token under the cursor. 0 is off.",
     scope: "world",
     config: true,
     default: CONSTANTS.DEFAULTS.HOVER_BRIGHTNESS,
@@ -286,22 +311,22 @@ const registerSettings = /* @__PURE__ */ __name(function () {
     scope: "world",
     type: String,
     choices: {
-      0: "None",
-      1: "Non Owned",
-      2: "All"
+      0: "No tokens",
+      1: "Tokens you don't own",
+      2: "All tokens"
     },
     default: CONSTANTS.DEFAULTS.REMOVE_BORDERS,
     config: true
   });
   game.settings.register(CONSTANTS.MODULE_ID, "factionDefaultDraw", {
-    name: "Faction Border Default",
-    hint: "Used by tokens whose per-token setting is 'Default'. On = always draw. Off = never draw. Only In Combat = draw only when there is an active combat.",
+    name: "Show rings",
+    hint: "For tokens left on World default in their Factions tab.",
     scope: "world",
     type: String,
     choices: {
-      on: "Force On",
-      combat: "Only In Combat",
-      off: "Force Off"
+      on: "Always",
+      combat: "Only in combat",
+      off: "Never"
     },
     default: "on",
     config: true
@@ -500,9 +525,9 @@ const registerSettings = /* @__PURE__ */ __name(function () {
   });
 
   game.settings.registerMenu(CONSTANTS.MODULE_ID, "team-config", {
-    name: "Team Configuration",
+    name: "Teams",
     label: "Configure Teams",
-    hint: "Setup Teams and Dispositions",
+    hint: "Team names, colors and relations.",
     icon: "fas fa-users-cog",
     type: TeamConfig,
     restricted: true
@@ -827,8 +852,8 @@ __name(getBorderScale, "getBorderScale");
 function getFrameOpacity(token) {
   let frameOpacity = game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.FRAME_OPACITY) || 0.5;
   const customFrameOpacity = token.document.getFlag(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_CUSTOM_FRAME_OPACITY);
-  if (customFrameOpacity && customFrameOpacity != 0.5) {
-    frameOpacity = customFrameOpacity;
+  if (_isSetValue(customFrameOpacity)) {
+    frameOpacity = Number(customFrameOpacity);
   }
   return frameOpacity;
 }
@@ -836,12 +861,16 @@ __name(getFrameOpacity, "getFrameOpacity");
 function getBaseOpacity(token) {
   let baseOpacity = game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.BASE_OPACITY) || 0.5;
   const customBaseOpacity = token.document.getFlag(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_CUSTOM_BASE_OPACITY);
-  if (customBaseOpacity && customBaseOpacity != 0.5) {
-    baseOpacity = customBaseOpacity;
+  if (_isSetValue(customBaseOpacity)) {
+    baseOpacity = Number(customBaseOpacity);
   }
   return baseOpacity;
 }
 __name(getBaseOpacity, "getBaseOpacity");
+function _isSetValue(value) {
+  return value !== undefined && value !== null && value !== "" && !Number.isNaN(Number(value));
+}
+__name(_isSetValue, "_isSetValue");
 function isHexGrid() {
   const gridTypes = CONST.GRID_TYPES;
   const hexTypes = [gridTypes.HEXEVENQ, gridTypes.HEXEVENR, gridTypes.HEXODDQ, gridTypes.HEXODDR];
@@ -982,14 +1011,16 @@ function _drawTexture(token, color, bevelTexture2) {
 }
 __name(_drawTexture, "_drawTexture");
 function colorBorderFaction(token) {
-  const colorFrom = game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.COLOR_FROM);
+  const rawColorFrom = game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.COLOR_FROM);
+  const colorFrom = rawColorFrom === "advanced-factions" && !AdvancedFactions.teamsEnabled() ? "token-disposition" : rawColorFrom;
+  const isBorderCustom = token.document.getFlag(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_CUSTOM_BORDER) || false;
   let color;
   if (colorFrom === "token-disposition") {
     const disposition = TokenFactions.dispositionKey(token);
     if (disposition) {
       color = TokenFactions.defaultColors[disposition];
     }
-  } else if (colorFrom === "advanced-factions") {
+  } else if (colorFrom === "advanced-factions" && !isBorderCustom) {
     const borderColor = AdvancedFactions.getBorderColor(token);
     if (borderColor) return borderColor;
     // Fallback if something fails
@@ -1042,7 +1073,6 @@ function colorBorderFaction(token) {
       EX_S: String(game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.ACTOR_FOLDER_COLOR_EX))
     }
   };
-  const isBorderCustom = token.document.getFlag(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_CUSTOM_BORDER) || false;
   if (isBorderCustom) {
     const customColorInt = token.document.getFlag(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_CUSTOM_COLOR_INT);
     const customColorExt = token.document.getFlag(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_CUSTOM_COLOR_EXT);
@@ -1384,162 +1414,20 @@ const API = {
     // Assuming AdvancedFactions is globally available or imported in this scope
     // In module.js lines 1-100 it is imported: import { AdvancedFactions, ... }
     return AdvancedFactions.getDisposition(actorA, actorB);
+  },
+  teamsEnabled() {
+    return AdvancedFactions.teamsEnabled();
+  },
+  getTeam(tokenOrActor) {
+    return AdvancedFactions.teamsEnabled() ? AdvancedFactions._getTeam(tokenOrActor) : null;
+  },
+  getTeams() {
+    return AdvancedFactions.teamsEnabled() ? AdvancedFactions.getTeams() : [];
   }
 };
-const handleRenderHUD = /* @__PURE__ */ __name((app, htmlOrEl, data) => {
-  const html = htmlOrEl instanceof HTMLElement ? $(htmlOrEl) : htmlOrEl;
-  const colorFrom = game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.COLOR_FROM);
-  if (colorFrom === "advanced-factions") {
-    AdvancedFactions.renderTokenHUD(app, html);
-  } else {
-    addBorderToggle(app, html, data);
-  }
+const handleRenderHUD = /* @__PURE__ */ __name((app, htmlOrEl) => {
+  AdvancedFactions.renderTokenHUD(app, htmlOrEl);
 }, "handleRenderHUD");
-function addBorderToggle(app, html, data) {
-  if (!game.user?.isGM) {
-    return;
-  }
-  if (!game.settings.get(CONSTANTS.MODULE_ID, "hudEnable")) {
-    return;
-  }
-  if (!app?.object?.document) {
-    return;
-  }
-  const factionState = _factionFlagState(app.object);
-  const stateTip = factionState === "default" ? "Default (world setting)"
-    : factionState === "on" ? "Forced On"
-    : factionState === "combat" ? "Only In Combat"
-    : "Forced Off";
-  const borderButton = `
-    <div class="control-icon factionBorder faction-border-${factionState} ${factionState === "off" ? "active" : ""}"
-      title="Faction Border: ${stateTip} — click to cycle"> <i class="fas fa-angry"></i>
-    </div>`;
-  const settingHudColClass = game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.HUD_COLUMN) ?? "right";
-  const settingHudTopBottomClass = game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.HUD_TOP_BOTTOM) ?? "bottom";
-  const buttonPos = "." + settingHudColClass.toLowerCase();
-  const col = html.find(buttonPos);
-  if (settingHudTopBottomClass.toLowerCase() === "top") {
-    col.prepend(borderButton);
-  } else {
-    col.append(borderButton);
-  }
-  html.find(".factionBorder").click(toggleBorder.bind(app));
-  html.find(".factionBorder").contextmenu(toggleCustomBorder.bind(app));
-}
-__name(addBorderToggle, "addBorderToggle");
-async function toggleBorder(event) {
-  const current = _factionFlagState(this.object);
-  const next = current === "default" ? "on"
-    : current === "on" ? "combat"
-    : current === "combat" ? "off"
-    : "default";
-  for (const token of canvas.tokens?.controlled) {
-    try {
-      await token.document.setFlag(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_DISABLE_BORDER, next);
-      token.refresh();
-    } catch (e) {
-      Logger.error(e);
-    }
-  }
-  const btn = event.currentTarget;
-  btn.classList.remove("faction-border-default", "faction-border-off", "faction-border-on", "faction-border-combat", "active");
-  btn.classList.add(`faction-border-${next}`);
-  if (next === "off") btn.classList.add("active");
-  const label = next === "default" ? "Default (world setting)"
-    : next === "on" ? "Forced On"
-    : next === "combat" ? "Only In Combat"
-    : "Forced Off";
-  btn.title = `Faction Border: ${label} — click to cycle`;
-}
-__name(toggleBorder, "toggleBorder");
-async function toggleCustomBorder(event) {
-  const tokenTmp = this.object;
-  const currentCustomColorTokenInt = tokenTmp.document.getFlag(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_CUSTOM_COLOR_INT) || "#000000";
-  const currentCustomColorTokenExt = tokenTmp.document.getFlag(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_CUSTOM_COLOR_EXT) || "#000000";
-  const currentCustomColorTokenFrameOpacity = tokenTmp.document.getFlag(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_CUSTOM_FRAME_OPACITY) || 0.5;
-  const currentCustomColorTokenBaseOpacity = tokenTmp.document.getFlag(CONSTANTS.MODULE_ID, CONSTANTS.FLAGS.FACTION_CUSTOM_BASE_OPACITY) || 0.5;
-  const dialogContent = `
-    <div class="form-group">
-      <label>${Logger.i18n("token-factions.tokeconfig.customColorInt")}</label>
-      <input type="color"
-        value="${currentCustomColorTokenInt}"
-        data-edit="token-factions.currentCustomColorTokenInt"></input>
-    </div>
-    <div class="form-group">
-      <label>${Logger.i18n("token-factions.tokeconfig.customColorExt")}</label>
-      <input type="color"
-        value="${currentCustomColorTokenExt}"
-        data-edit="token-factions.currentCustomColorTokenExt"></input>
-    </div>
-    <div class="form-group">
-      <label>${Logger.i18n("token-factions.tokeconfig.customFrameOpacity")}</label>
-      <input type="number"
-        min="0" max="1" step="0.1"
-        value="${currentCustomColorTokenFrameOpacity}"
-        data-edit="token-factions.currentCustomColorTokenFrameOpacity"></input>
-    </div>
-    <div class="form-group">
-      <label>${Logger.i18n("token-factions.tokeconfig.customBaseOpacity")}</label>
-      <input type="number"
-        min="0" max="1" step="0.1"
-        value="${currentCustomColorTokenBaseOpacity}"
-        data-edit="token-factions.currentCustomColorTokenBaseOpacity"></input>
-    </div>
-    `;
-  const d = new Dialog({
-    title: Logger.i18n("token-factions.label.chooseCustomColorToken"),
-    content: dialogContent,
-    buttons: {
-      yes: {
-        label: Logger.i18n("token-factions.label.applyCustomColor"),
-        callback: async (html) => {
-          const newCurrentCustomColorTokenInt = $(
-            html.find(`input[data-edit='token-factions.currentCustomColorTokenInt']`)[0]
-          ).val();
-          const newCurrentCustomColorTokenExt = $(
-            html.find(`input[data-edit='token-factions.currentCustomColorTokenExt']`)[0]
-          ).val();
-          const newCurrentCustomColorTokenFrameOpacity = $(
-            html.find(`input[data-edit='token-factions.currentCustomColorTokenFrameOpacity']`)[0]
-          ).val();
-          const newCurrentCustomColorTokenBaseOpacity = $(
-            html.find(`input[data-edit='token-factions.currentCustomColorTokenBaseOpacity']`)[0]
-          ).val();
-          for (const token of canvas.tokens?.controlled) {
-            token.document.setFlag(
-              CONSTANTS.MODULE_ID,
-              CONSTANTS.FLAGS.FACTION_CUSTOM_COLOR_INT,
-              newCurrentCustomColorTokenInt
-            );
-            token.document.setFlag(
-              CONSTANTS.MODULE_ID,
-              CONSTANTS.FLAGS.FACTION_CUSTOM_COLOR_EXT,
-              newCurrentCustomColorTokenExt
-            );
-            token.document.setFlag(
-              CONSTANTS.MODULE_ID,
-              CONSTANTS.FLAGS.FACTION_CUSTOM_FRAME_OPACITY,
-              newCurrentCustomColorTokenFrameOpacity
-            );
-            token.document.setFlag(
-              CONSTANTS.MODULE_ID,
-              CONSTANTS.FLAGS.FACTION_CUSTOM_BASE_OPACITY,
-              newCurrentCustomColorTokenBaseOpacity
-            );
-          }
-        }
-      },
-      no: {
-        label: Logger.i18n("token-factions.label.doNothing"),
-        callback: (html) => {
-        }
-      }
-    },
-    default: "no"
-  });
-  d.render(true);
-}
-__name(toggleCustomBorder, "toggleCustomBorder");
 const injectConfig = {
   inject: /* @__PURE__ */ __name(function injectConfig2(app, html, data, object) {
     this._generateTabStruct(app, html, data, object);
@@ -1747,33 +1635,167 @@ const renderTokenConfig = /* @__PURE__ */ __name(async function (app, htmlOrEl, 
     if (!options?.isFirstRender) return;
     if (el.querySelector(`div.tab[data-tab="${CONSTANTS.MODULE_ID}"]`)) return;
     const tokenDocOrProto = app.token ?? app.document ?? app.object ?? {};
-    const data = _buildFactionTabData(tokenDocOrProto);
-    const body = await foundry.applications.handlebars.renderTemplate(`modules/${CONSTANTS.MODULE_ID}/templates/token-config.html`, data);
+    const state = _factionTabState(tokenDocOrProto);
+    const body = await foundry.applications.handlebars.renderTemplate(TF_TAB_TEMPLATE, _buildFactionTabData(tokenDocOrProto, state));
     const isActive = app?.tabGroups?.sheet === CONSTANTS.MODULE_ID;
     const section = `<div class="tab${isActive ? ' active' : ''}" data-group="sheet" data-tab="${CONSTANTS.MODULE_ID}">${body}</div>`;
     const lastTab = [...el.querySelectorAll('.tab')].pop();
     if (lastTab) lastTab.insertAdjacentHTML('afterend', section);
+    _wireFactionTab(el.querySelector(`div.tab[data-tab="${CONSTANTS.MODULE_ID}"]`), tokenDocOrProto, state);
     return;
   }
   renderTokenConfigHandler(app, $(el));
 }, "renderTokenConfig");
-function _buildFactionTabData(tokenDocOrProto) {
-  const tokenFlags = tokenDocOrProto.flags?.[CONSTANTS.MODULE_ID] || {};
-  const rawDisable = tokenFlags[CONSTANTS.FLAGS.FACTION_DISABLE_BORDER];
-  const disableBorderState = rawDisable === "on" ? "on" : (rawDisable === "off" || rawDisable === true) ? "off" : "default";
+const TF_TAB_TEMPLATE = `modules/${CONSTANTS.MODULE_ID}/templates/token-config.html`;
+function _factionTabState(tokenDocOrProto) {
+  const flags = tokenDocOrProto.flags?.[CONSTANTS.MODULE_ID] || {};
+  const raw = flags[CONSTANTS.FLAGS.FACTION_DISABLE_BORDER];
+  let border = "default";
+  if (raw === "on" || raw === "combat") border = raw;
+  else if (raw === "off" || raw === true) border = "off";
+  const frame = flags[CONSTANTS.FLAGS.FACTION_CUSTOM_FRAME_OPACITY];
+  const base = flags[CONSTANTS.FLAGS.FACTION_CUSTOM_BASE_OPACITY];
   return {
-    disableBorderState,
-    disableBorderOptions: { default: "Default (world setting)", on: "Force On", combat: "Only In Combat", off: "Force Off" },
-    disableBorder: disableBorderState === "off",
-    customBorder: isRealBoolean(tokenFlags[CONSTANTS.FLAGS.FACTION_CUSTOM_BORDER]) ? Boolean(tokenFlags[CONSTANTS.FLAGS.FACTION_CUSTOM_BORDER]) : false,
-    customColorInt: tokenFlags[CONSTANTS.FLAGS.FACTION_CUSTOM_COLOR_INT] || game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.HOSTILE_COLOR),
-    customColorExt: tokenFlags[CONSTANTS.FLAGS.FACTION_CUSTOM_COLOR_EXT] || game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.HOSTILE_COLOR_EX),
-    customFrameOpacity: isRealNumber(tokenFlags[CONSTANTS.FLAGS.FACTION_CUSTOM_FRAME_OPACITY]) ? tokenFlags[CONSTANTS.FLAGS.FACTION_CUSTOM_FRAME_OPACITY] : game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.FRAME_OPACITY),
-    customBaseOpacity: isRealNumber(tokenFlags[CONSTANTS.FLAGS.FACTION_CUSTOM_BASE_OPACITY]) ? tokenFlags[CONSTANTS.FLAGS.FACTION_CUSTOM_BASE_OPACITY] : game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.BASE_OPACITY),
-    team: tokenFlags[CONSTANTS.FLAGS.FACTION_TEAM] || "",
-    teams: AdvancedFactions.getTeams()
+    team: (tokenDocOrProto.documentName === "Token" ? AdvancedFactions._getTeam(tokenDocOrProto) : null) || flags[CONSTANTS.FLAGS.FACTION_TEAM] || "",
+    border,
+    custom: String(flags[CONSTANTS.FLAGS.FACTION_CUSTOM_BORDER]) === "true",
+    colorIn: flags[CONSTANTS.FLAGS.FACTION_CUSTOM_COLOR_INT] || "",
+    colorOut: flags[CONSTANTS.FLAGS.FACTION_CUSTOM_COLOR_EXT] || "",
+    frameSet: _isSetValue(frame),
+    frame: _isSetValue(frame) ? Number(frame) : Number(game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.FRAME_OPACITY)),
+    baseSet: _isSetValue(base),
+    base: _isSetValue(base) ? Number(base) : Number(game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.BASE_OPACITY)),
+    chooser: false,
+    overrides: false
   };
 }
+__name(_factionTabState, "_factionTabState");
+function _factionTabRing(tokenDocOrProto, state, team) {
+  const read = (key) => game.settings.get(CONSTANTS.MODULE_ID, key);
+  if (state.custom && state.colorIn) return { inner: state.colorIn, outer: state.colorOut || "#000000" };
+  const colorFrom = read(CONSTANTS.SETTINGS.COLOR_FROM);
+  if (team && colorFrom === "advanced-factions") return { inner: team.color, outer: team.colorEx || "#000000" };
+  if (colorFrom === "actor-folder-color") {
+    const actor = tokenDocOrProto.actor ?? tokenDocOrProto.parent;
+    return { inner: actor?.folder?.color?.css ?? actor?.folder?.color ?? "#ffffff", outer: read(CONSTANTS.SETTINGS.ACTOR_FOLDER_COLOR_EX) };
+  }
+  const disposition = Number(tokenDocOrProto.disposition ?? 0);
+  if (disposition === CONST.TOKEN_DISPOSITIONS.FRIENDLY) return { inner: read(CONSTANTS.SETTINGS.FRIENDLY_COLOR), outer: read(CONSTANTS.SETTINGS.FRIENDLY_COLOR_EX) };
+  if (disposition === CONST.TOKEN_DISPOSITIONS.HOSTILE) return { inner: read(CONSTANTS.SETTINGS.HOSTILE_COLOR), outer: read(CONSTANTS.SETTINGS.HOSTILE_COLOR_EX) };
+  if (disposition === CONST.TOKEN_DISPOSITIONS.SECRET) return { inner: Color.from(CONFIG.Canvas.dispositionColors.SECRET).css, outer: "#000000" };
+  return { inner: read(CONSTANTS.SETTINGS.NEUTRAL_COLOR), outer: read(CONSTANTS.SETTINGS.NEUTRAL_COLOR_EX) };
+}
+__name(_factionTabRing, "_factionTabRing");
+function _buildFactionTabData(tokenDocOrProto, state) {
+  const teamsEnabled = AdvancedFactions.teamsEnabled();
+  const teams = AdvancedFactions.getTeams();
+  const found = teamsEnabled ? teams.find(entry => entry.id === state.team) ?? null : null;
+  const matrix = AdvancedFactions.getMatrix();
+  const others = found ? teams.filter(other => other.id !== found.id) : [];
+  const inLane = (value) => others.filter(other => AdvancedFactions.relation(found.id, other.id, matrix) === value);
+  const team = found ? {
+    id: found.id,
+    name: found.name,
+    color: found.color,
+    colorEx: found.colorEx || "#000000",
+    def: tfDisposition(found.gmDisposition),
+    stance: TF_DISPOSITIONS.map(entry => ({ key: entry.key, count: inLane(entry.value).length })).filter(slice => slice.count > 0)
+  } : null;
+  const relations = found ? TF_DISPOSITIONS.map(entry => ({
+    ...entry,
+    teams: inLane(entry.value).map(other => ({ name: other.name, color: other.color, colorEx: other.colorEx || "#000000" }))
+  })).filter(lane => lane.teams.length > 0) : [];
+  const chooser = teamsEnabled && state.chooser ? [
+    { id: TF_NO_TEAM, name: "No team", none: true, on: !found },
+    ...teams.map(entry => ({ id: entry.id, name: entry.name, color: entry.color, colorEx: entry.colorEx || "#000000", on: entry.id === state.team }))
+  ] : null;
+  const overrides = (state.custom ? 1 : 0) + (state.frameSet ? 1 : 0) + (state.baseSet ? 1 : 0);
+  const circle = !!game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.CIRCLE_BORDERS);
+  const hex = !circle && !!canvas?.grid?.isHexagonal;
+  return {
+    teamsEnabled,
+    state,
+    team,
+    chooser,
+    relations,
+    ringModes: TF_RING_MODES.map(mode => ({ value: mode.value, label: mode.label, on: mode.value === state.border })),
+    image: tokenDocOrProto.texture?.src || "icons/svg/mystery-man.svg",
+    ring: _factionTabRing(tokenDocOrProto, state, found),
+    shapeCircle: circle,
+    shapeHex: hex,
+    shapeSquare: !circle && !hex,
+    overridesLabel: overrides ? `${overrides} set` : "None set",
+    frameLabel: Number(state.frame).toFixed(2),
+    baseLabel: Number(state.base).toFixed(2),
+    dispositionColors: AdvancedFactions.dispositionCssVars()
+  };
+}
+__name(_buildFactionTabData, "_buildFactionTabData");
+function _wireFactionTab(section, tokenDocOrProto, state) {
+  if (!section) return;
+  const rerender = async () => {
+    section.innerHTML = await foundry.applications.handlebars.renderTemplate(TF_TAB_TEMPLATE, _buildFactionTabData(tokenDocOrProto, state));
+  };
+  section.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-tf-action]");
+    if (!button) return;
+    const action = button.dataset.tfAction;
+    if (action === "editRelations") {
+      new TeamConfig({ selectedTeam: state.team }).render(true);
+      return;
+    }
+    if (action === "chooser") {
+      state.chooser = !state.chooser;
+    } else if (action === "team") {
+      state.team = button.dataset.teamId;
+      state.chooser = false;
+      const team = AdvancedFactions.getTeams().find(entry => entry.id === state.team);
+      const field = section.closest("form")?.elements?.namedItem("disposition");
+      if (team && field) {
+        field.value = String(Number(team.gmDisposition));
+        field.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    } else if (action === "border") {
+      state.border = button.dataset.value;
+    } else {
+      return;
+    }
+    rerender();
+  });
+  section.addEventListener("change", (event) => {
+    const field = event.target.dataset?.tfField;
+    if (!field) return;
+    if (field === "frame" || field === "base") {
+      state[field] = Number(event.target.value);
+      return;
+    }
+    if (field === "custom") {
+      state.custom = event.target.checked;
+      if (state.custom && !state.colorIn) {
+        const team = AdvancedFactions.teamsEnabled() ? AdvancedFactions.getTeams().find(entry => entry.id === state.team) : null;
+        const ring = _factionTabRing(tokenDocOrProto, { ...state, custom: false }, team);
+        state.colorIn = ring.inner;
+        state.colorOut = ring.outer;
+      }
+    } else if (field === "frameSet" || field === "baseSet") {
+      state[field] = event.target.checked;
+    } else if (field === "colorIn" || field === "colorOut") {
+      state[field] = event.target.value;
+    }
+    rerender();
+  });
+  section.addEventListener("input", (event) => {
+    const field = event.target.dataset?.tfField;
+    if (field !== "frame" && field !== "base") return;
+    state[field] = Number(event.target.value);
+    const label = section.querySelector(`[data-tf-label="${field}"]`);
+    if (label) label.textContent = state[field].toFixed(2);
+  });
+  section.addEventListener("toggle", (event) => {
+    if (event.target.matches?.("details.tf-overrides")) state.overrides = event.target.open;
+  }, true);
+}
+__name(_wireFactionTab, "_wireFactionTab");
 async function renderTokenConfigHandler(tokenConfig, html) {
   if (!html) {
     return;
@@ -1793,9 +1815,10 @@ async function renderTokenConfigHandler(tokenConfig, html) {
   );
   const posTab = html.find(`.tab[data-tab="${CONSTANTS.MODULE_ID}"]`);
   const tokenDocOrProto = tokenConfig.object ?? tokenConfig.token ?? tokenConfig.document ?? {};
-  const data = _buildFactionTabData(tokenDocOrProto);
-  const insertHTML = await foundry.applications.handlebars.renderTemplate(`modules/${CONSTANTS.MODULE_ID}/templates/token-config.html`, data);
+  const state = _factionTabState(tokenDocOrProto);
+  const insertHTML = await foundry.applications.handlebars.renderTemplate(TF_TAB_TEMPLATE, _buildFactionTabData(tokenDocOrProto, state));
   posTab.append(insertHTML);
+  _wireFactionTab(posTab[0], tokenDocOrProto, state);
 }
 __name(renderTokenConfigHandler, "renderTokenConfigHandler");
 function handelRenderSettingsConfig(app, htmlOrEl, data) {
@@ -1856,8 +1879,95 @@ function handelRenderSettingsConfig(app, htmlOrEl, data) {
     const picker = el.find(`input[type="color"][data-edit="${key}"]`);
     if (picker.length) picker.val(v);
   });
+  _groupModuleSettings(el[0]);
 }
 __name(handelRenderSettingsConfig, "handelRenderSettingsConfig");
+const SETTINGS_LAYOUT = [
+  ["teams", ["teams-enabled", "menu:team-config", "enableCombatColoring"]],
+  ["ring", [CONSTANTS.SETTINGS.COLOR_FROM, "factionDefaultDraw", CONSTANTS.SETTINGS.REMOVE_BORDERS]],
+  ["ringColors", [CONSTANTS.SETTINGS.FRIENDLY_COLOR, CONSTANTS.SETTINGS.NEUTRAL_COLOR, CONSTANTS.SETTINGS.HOSTILE_COLOR, CONSTANTS.SETTINGS.PARTY_COLOR, CONSTANTS.SETTINGS.CONTROLLED_COLOR, CONSTANTS.SETTINGS.ACTOR_FOLDER_COLOR_EX]],
+  ["ringLook", [CONSTANTS.SETTINGS.FRAME_STYLE, CONSTANTS.SETTINGS.FRAME_OPACITY, CONSTANTS.SETTINGS.BORDER_WIDTH, CONSTANTS.SETTINGS.PERMANENT_BORDER, CONSTANTS.SETTINGS.BORDER_OFFSET, CONSTANTS.SETTINGS.BORDER_GRID_SCALE, CONSTANTS.SETTINGS.SCALE_BORDER, CONSTANTS.SETTINGS.CIRCLE_BORDERS, CONSTANTS.SETTINGS.FILL_TEXTURE, CONSTANTS.SETTINGS.BASE_OPACITY, "borderUnderSpriteOnHover"]],
+  ["outline", [CONSTANTS.SETTINGS.HOVER_DISPOSITION_VISIBILITY, CONSTANTS.SETTINGS.HOVER_BRIGHTNESS]],
+  ["hud", [CONSTANTS.SETTINGS.HUD_ENABLE, CONSTANTS.SETTINGS.HUD_COLUMN, CONSTANTS.SETTINGS.HUD_TOP_BOTTOM]],
+  ["other", [`menu:${CONSTANTS.SETTINGS.RESET}`, CONSTANTS.SETTINGS.DEBUG]]
+];
+const SETTINGS_COLOR_PAIRS = [
+  [CONSTANTS.SETTINGS.FRIENDLY_COLOR, CONSTANTS.SETTINGS.FRIENDLY_COLOR_EX],
+  [CONSTANTS.SETTINGS.NEUTRAL_COLOR, CONSTANTS.SETTINGS.NEUTRAL_COLOR_EX],
+  [CONSTANTS.SETTINGS.HOSTILE_COLOR, CONSTANTS.SETTINGS.HOSTILE_COLOR_EX],
+  [CONSTANTS.SETTINGS.PARTY_COLOR, CONSTANTS.SETTINGS.PARTY_COLOR_EX],
+  [CONSTANTS.SETTINGS.CONTROLLED_COLOR, CONSTANTS.SETTINGS.CONTROLLED_COLOR_EX]
+];
+function _groupModuleSettings(root) {
+  const section = root?.querySelector?.(`section[data-category="${CONSTANTS.MODULE_ID}"]`);
+  if (!section || section.dataset.tfGrouped) return;
+  section.dataset.tfGrouped = "1";
+  const groupOf = (key) => {
+    const el = key.startsWith("menu:")
+      ? section.querySelector(`button[data-key="${CONSTANTS.MODULE_ID}.${key.slice(5)}"]`)
+      : section.querySelector(`[name="${CONSTANTS.MODULE_ID}.${key}"]`);
+    return el?.closest(".form-group") ?? null;
+  };
+  for (const [inKey, exKey] of SETTINGS_COLOR_PAIRS) {
+    const inGroup = groupOf(inKey);
+    const exGroup = groupOf(exKey);
+    const inFields = inGroup?.querySelector(".form-fields");
+    const exFields = exGroup?.querySelector(".form-fields");
+    if (!inFields || !exFields) continue;
+    const side = (fields, labelKey) => {
+      const wrap = document.createElement("label");
+      wrap.className = "tf-swatch";
+      wrap.append(...fields.childNodes);
+      const span = document.createElement("span");
+      span.textContent = game.i18n.localize(`${CONSTANTS.MODULE_ID}.setting.${labelKey}`);
+      wrap.append(span);
+      return wrap;
+    };
+    const inner = side(inFields, "inner");
+    const outer = side(exFields, "outer");
+    inFields.replaceChildren(inner, outer);
+    inFields.classList.add("tf-pair");
+    exGroup.remove();
+  }
+  const placed = new Set();
+  const frag = document.createDocumentFragment();
+  for (const [id, keys] of SETTINGS_LAYOUT) {
+    const head = document.createElement("h4");
+    head.className = "tf-settings-group";
+    head.textContent = game.i18n.localize(`${CONSTANTS.MODULE_ID}.setting.group.${id}`);
+    const hintKey = `${CONSTANTS.MODULE_ID}.setting.group.${id}Hint`;
+    if (game.i18n.has(hintKey)) {
+      const hint = document.createElement("span");
+      hint.className = "tf-settings-group-hint";
+      hint.textContent = game.i18n.localize(hintKey);
+      head.append(hint);
+    }
+    frag.append(head);
+    for (const key of keys) {
+      const group = groupOf(key);
+      if (!group || placed.has(group)) continue;
+      placed.add(group);
+      frag.append(group);
+    }
+  }
+  for (const group of section.querySelectorAll(":scope > .form-group")) frag.append(group);
+  section.append(frag);
+  const teamRows = [groupOf("menu:team-config"), groupOf("enableCombatColoring")].filter(Boolean);
+  const toggle = section.querySelector(`[name="${CONSTANTS.MODULE_ID}.teams-enabled"]`);
+  const colorSelect = section.querySelector(`[name="${CONSTANTS.MODULE_ID}.${CONSTANTS.SETTINGS.COLOR_FROM}"]`);
+  const sync = () => {
+    const on = !!toggle?.checked;
+    for (const row of teamRows) row.classList.toggle("tf-team-off", !on);
+    const teamOption = colorSelect?.querySelector('option[value="advanced-factions"]');
+    if (!teamOption) return;
+    teamOption.disabled = !on;
+    teamOption.hidden = !on;
+    if (!on && colorSelect.value === "advanced-factions") colorSelect.value = "token-disposition";
+  };
+  toggle?.addEventListener("change", sync);
+  sync();
+}
+__name(_groupModuleSettings, "_groupModuleSettings");
 const initHooks = /* @__PURE__ */ __name(async () => {
   await TokenFactions.onInit();
   AdvancedFactions.init();
@@ -1902,6 +2012,8 @@ const initHooks = /* @__PURE__ */ __name(async () => {
     }
   });
   Hooks.on("renderTokenHUD", handleRenderHUD);
+  Hooks.on("closeTokenHUD", () => AdvancedFactions.closeHudPalette());
+  Hooks.on("updateToken", (tokenDoc, change, options, userId) => AdvancedFactions.syncLinkedPrototype(tokenDoc, change, userId));
   Hooks.on("createCombat", _refreshFactionBordersOnCombatChange);
   Hooks.on("deleteCombat", _refreshFactionBordersOnCombatChange);
   Hooks.on("combatStart", _refreshFactionBordersOnCombatChange);
@@ -1938,7 +2050,7 @@ const initHooks = /* @__PURE__ */ __name(async () => {
     AdvancedFactions.addEntryContextOptions(app, options);
   });
   Hooks.on("renderCombatTracker", (app, htmlOrEl, data) => {
-    if (!game.settings.get(CONSTANTS.MODULE_ID, "enableCombatColoring")) return;
+    if (!game.settings.get(CONSTANTS.MODULE_ID, "enableCombatColoring") || !AdvancedFactions.teamsEnabled()) return;
     const html = htmlOrEl instanceof HTMLElement ? $(htmlOrEl) : htmlOrEl;
 
     // Iterate over combatants
@@ -1999,8 +2111,8 @@ Hooks.once("init", () => {
   }
   registerSettings();
   game.settings.register(CONSTANTS.MODULE_ID, "enableCombatColoring", {
-    name: "Enable Combat Tracker/Carousel Coloring",
-    hint: "If enabled, Token Factions will colorize the Combat Tracker and Combat Carousel with Team Colors.",
+    name: "Team colors in the combat tracker",
+    hint: "Colors the combat tracker and carousel by team.",
     scope: "world",
     config: true,
     default: true,
@@ -2008,7 +2120,8 @@ Hooks.once("init", () => {
     onChange: () => window.location.reload()
   });
   game.settings.register(CONSTANTS.MODULE_ID, "borderUnderSpriteOnHover", {
-    name: "Keep border under sprite on hover",
+    name: "Keep ring under the art on hover",
+    hint: "Foundry lifts it above the art on hover by default.",
     scope: "world",
     config: true,
     default: false,
@@ -2033,6 +2146,40 @@ Hooks.once("init", () => {
 Hooks.once("setup", function () {
   setupHooks();
 });
+Hooks.once("ready", async () => {
+  if (!game.user?.isGM || game.settings.get(CONSTANTS.MODULE_ID, "opacity-migrated")) return;
+  const keys = [CONSTANTS.FLAGS.FACTION_CUSTOM_FRAME_OPACITY, CONSTANTS.FLAGS.FACTION_CUSTOM_BASE_OPACITY];
+  const legacyUnset = (value) => value !== undefined && (!value || Number(value) === 0.5);
+  const clearUpdate = (flags, prefix) => {
+    const update = {};
+    for (const key of keys) {
+      if (legacyUnset(flags?.[key])) update[`${prefix}flags.${CONSTANTS.MODULE_ID}.-=${key}`] = null;
+    }
+    return update;
+  };
+  const actorUpdates = [];
+  for (const actor of game.actors) {
+    const update = clearUpdate(actor.prototypeToken?.flags?.[CONSTANTS.MODULE_ID], "prototypeToken.");
+    if (Object.keys(update).length) actorUpdates.push({ _id: actor.id, ...update });
+  }
+  if (actorUpdates.length) await Actor.updateDocuments(actorUpdates);
+  for (const scene of game.scenes) {
+    const tokenUpdates = [];
+    for (const tokenDoc of scene.tokens) {
+      const update = clearUpdate(tokenDoc.flags?.[CONSTANTS.MODULE_ID], "");
+      if (Object.keys(update).length) tokenUpdates.push({ _id: tokenDoc.id, ...update });
+    }
+    if (tokenUpdates.length) await scene.updateEmbeddedDocuments("Token", tokenUpdates);
+  }
+  await game.settings.set(CONSTANTS.MODULE_ID, "opacity-migrated", true);
+});
+Hooks.once("ready", async () => {
+  if (!game.user?.isGM || game.settings.get(CONSTANTS.MODULE_ID, "teams-migrated")) return;
+  if (game.settings.get(CONSTANTS.MODULE_ID, CONSTANTS.SETTINGS.COLOR_FROM) === "advanced-factions") {
+    await game.settings.set(CONSTANTS.MODULE_ID, "teams-enabled", true);
+  }
+  await game.settings.set(CONSTANTS.MODULE_ID, "teams-migrated", true);
+});
 Hooks.once("ready", () => {
   // Check if coloring is enabled
   if (!game.settings.get(CONSTANTS.MODULE_ID, "enableCombatColoring")) return;
@@ -2041,7 +2188,7 @@ Hooks.once("ready", () => {
   if (CONFIG.combatTrackerDock && CONFIG.combatTrackerDock.CombatantPortrait) {
     const originalGetBorderColor = CONFIG.combatTrackerDock.CombatantPortrait.prototype.getBorderColor;
     CONFIG.combatTrackerDock.CombatantPortrait.prototype.getBorderColor = function (tokenDocument) {
-      if (tokenDocument) {
+      if (tokenDocument && AdvancedFactions.teamsEnabled()) {
         const teamId = AdvancedFactions._getTeam(tokenDocument);
         if (teamId) {
           const team = AdvancedFactions.getTeams().find(t => t.id === teamId);

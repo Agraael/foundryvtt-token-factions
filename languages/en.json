@@ -2,17 +2,33 @@
   "token-factions.setting.tokenFactionsEnabled.name": "Enable/Disable Token Factions Feature",
   "token-factions.setting.tokenFactionsEnabled.hint": "Generate token bases based on token disposition or actor folder color.",
 
-  "token-factions.setting.fillTexture.name": "Fill the texture",
-  "token-factions.setting.fillTexture.hint": "Check if you want to fill the texture under the token",
+  "token-factions.setting.teams-enabled.name": "Advanced teams",
+  "token-factions.setting.teams-enabled.hint": "Teams decide who is friendly or hostile. Off, every token uses its own disposition.",
 
-  "token-factions.setting.base-opacity.name": "Base Opacity",
-  "token-factions.setting.base-opacity.hint": "Set the alpha gradient on the texture",
+  "token-factions.setting.group.teams": "Teams",
+  "token-factions.setting.group.ring": "Ring",
+  "token-factions.setting.group.ringColors": "Ring colors",
+  "token-factions.setting.group.ringColorsHint": "Inner and outer edge per disposition, used when the ring takes the disposition color.",
+  "token-factions.setting.group.ringLook": "Ring look",
+  "token-factions.setting.group.outline": "Selection outline",
+  "token-factions.setting.group.outlineHint": "Foundry's own hover and selection border.",
+  "token-factions.setting.group.hud": "Token HUD",
+  "token-factions.setting.group.other": "Other",
+  "token-factions.setting.inner": "Inner",
+  "token-factions.setting.outer": "Outer",
 
-  "token-factions.setting.color-from.name": "Generate Token Faction Color From",
-  "token-factions.setting.color-from.hint": " ",
+  "token-factions.setting.fillTexture.name": "Fill under the token",
+  "token-factions.setting.fillTexture.hint": "Paints the ring color under the token art.",
 
-  "token-factions.setting.color-from.opt.token-disposition": "Default: A Token's Disposition",
-  "token-factions.setting.color-from.opt.actor-folder-color": "An Actor's Folder Color",
+  "token-factions.setting.base-opacity.name": "Fill opacity",
+  "token-factions.setting.base-opacity.hint": "How solid the fill under the token is.",
+
+  "token-factions.setting.color-from.name": "Ring color",
+  "token-factions.setting.color-from.hint": "Where the ring around each token gets its color.",
+
+  "token-factions.setting.color-from.opt.token-disposition": "Token disposition",
+  "token-factions.setting.color-from.opt.actor-folder-color": "Actor folder color",
+  "token-factions.setting.color-from.opt.team-color": "Team color",
   "token-factions.setting.color-from.opt.custom-disposition": "A Custom Color Set For Token Disposition",
 
   "token-factions.setting.pixiFactionsEnabled.name": "SUBFEATURE - Enable the standard token faction texture",
@@ -21,50 +37,50 @@
   "token-factions.setting.draw-frames-by-default.name": "Draw Token Frames By Default?",
   "token-factions.setting.draw-frames-by-default.hint": "Token frames (rings) are layered above token graphics. Enable this if you primarily use round tokens. Disable it if you primarily use irregularly-shaped tokens.",
 
-  "token-factions.setting.frame-style.name": "Frame Render Style",
-  "token-factions.setting.frame-style.hint": " ",
+  "token-factions.setting.frame-style.name": "Ring style",
+  "token-factions.setting.frame-style.hint": "Beveled adds a shaded edge.",
 
-  "token-factions.setting.frame-style.opt.flat": "Default: Flat",
+  "token-factions.setting.frame-style.opt.flat": "Flat",
   "token-factions.setting.frame-style.opt.beveled": "Beveled",
 
   "token-factions.setting.frame-width.name": "Frame Width (Percent of Grid Unit)",
   "token-factions.setting.frame-width.hint": " ",
 
-  "token-factions.setting.frame-opacity.name": "Frame Opacity",
-  "token-factions.setting.frame-opacity.hint": " ",
+  "token-factions.setting.frame-opacity.name": "Ring opacity",
+  "token-factions.setting.frame-opacity.hint": "How solid the ring is.",
 
   "token-factions.setting.borderFactionsEnabled.name": "SUBFEATURE - Enable the alternative token custom border",
   "token-factions.setting.borderFactionsEnabled.hint": "Alternative custom the border of the token, need reload",
 
-  "token-factions.setting.removeBorders.name": "Remove Borders",
-  "token-factions.setting.removeBorders.hint": "Remove the border from specific tokens",
+  "token-factions.setting.removeBorders.name": "Hide rings on",
+  "token-factions.setting.removeBorders.hint": "Overrides every token's own setting.",
 
-  "token-factions.setting.permanentBorder.name": "Selected Token Borders",
-  "token-factions.setting.permanentBorder.hint": "Selected tokens have double width borders",
+  "token-factions.setting.permanentBorder.name": "Thicker ring when selected",
+  "token-factions.setting.permanentBorder.hint": "Doubles the ring width on selected tokens.",
 
-  "token-factions.setting.scaleBorder.name": "Scale Borders",
-  "token-factions.setting.scaleBorder.hint": "Scales token border according to the 'scale' token setting",
+  "token-factions.setting.scaleBorder.name": "Follow token scale",
+  "token-factions.setting.scaleBorder.hint": "The ring follows the token's Scale setting.",
 
-  "token-factions.setting.borderWidth.name": "Border Width",
-  "token-factions.setting.borderWidth.hint": "Override border width",
+  "token-factions.setting.borderWidth.name": "Ring width",
+  "token-factions.setting.borderWidth.hint": "In pixels. 0 uses Foundry's default.",
 
-  "token-factions.setting.borderGridScale.name": "Grid Scaling",
-  "token-factions.setting.borderGridScale.hint": "Scale border width to grid size, based on 100px grid",
+  "token-factions.setting.borderGridScale.name": "Scale ring with grid",
+  "token-factions.setting.borderGridScale.hint": "Ring width follows the grid size, based on a 100 px grid.",
 
-  "token-factions.setting.borderOffset.name": "Border Offset",
-  "token-factions.setting.borderOffset.hint": "Customize border offset",
+  "token-factions.setting.borderOffset.name": "Ring offset",
+  "token-factions.setting.borderOffset.hint": "Moves the ring in or out, in pixels.",
 
-  "token-factions.setting.circleBorders.name": "Circular Borders",
-  "token-factions.setting.circleBorders.hint": " ",
+  "token-factions.setting.circleBorders.name": "Round rings",
+  "token-factions.setting.circleBorders.hint": "Circles instead of the grid shape.",
 
-  "token-factions.setting.hudEnable.name": "Token Faction HUD element",
-  "token-factions.setting.hudEnable.hint": "Add Token HUD element to disable/enable borderstoken faction",
+  "token-factions.setting.hudEnable.name": "HUD button",
+  "token-factions.setting.hudEnable.hint": "Token HUD button to set the team or disposition and the ring.",
 
-  "token-factions.setting.hudColumn.name": "HUD Column",
-  "token-factions.setting.hudColumn.hint": "Which HUD column to place the button in",
+  "token-factions.setting.hudColumn.name": "HUD column",
+  "token-factions.setting.hudColumn.hint": "Which side of the token HUD.",
 
-  "token-factions.setting.hudTopBottom.name": "HUD Top/Bottom",
-  "token-factions.setting.hudTopBottom.hint": "Where to place the button in the column",
+  "token-factions.setting.hudTopBottom.name": "HUD position",
+  "token-factions.setting.hudTopBottom.hint": "Top or bottom of that column.",
 
   "token-factions.setting.circularNameplate.name": "Circular Nameplates",
   "token-factions.setting.circularNameplate.hint": "Requires a refresh",
@@ -84,38 +100,38 @@
   "token-factions.setting.plateConsistency.name": "Nameplate Consistency",
   "token-factions.setting.plateConsistency.hint": "Attempts to keep nameplates the same size across different grid sizes",
 
-  "token-factions.setting.controlledColor.name": "Color: Controlled",
-  "token-factions.setting.controlledColor.hint": " ",
+  "token-factions.setting.controlledColor.name": "Selected and owned",
+  "token-factions.setting.controlledColor.hint": "Inner and outer color for tokens you select or own.",
 
-  "token-factions.setting.controlledColorEx.name": "Color: Controlled External",
-  "token-factions.setting.controlledColorEx.hint": " ",
+  "token-factions.setting.controlledColorEx.name": "Selected and owned: outer",
+  "token-factions.setting.controlledColorEx.hint": "Outer edge of that ring.",
 
-  "token-factions.setting.hostileColor.name": "Color: Hostile",
-  "token-factions.setting.hostileColor.hint": " ",
+  "token-factions.setting.hostileColor.name": "Hostile",
+  "token-factions.setting.hostileColor.hint": "Inner and outer ring color for hostile tokens.",
 
-  "token-factions.setting.hostileColorEx.name": "Color: Hostile External",
-  "token-factions.setting.hostileColorEx.hint": " ",
+  "token-factions.setting.hostileColorEx.name": "Hostile: outer",
+  "token-factions.setting.hostileColorEx.hint": "Outer edge of the hostile ring.",
 
-  "token-factions.setting.friendlyColor.name": "Color: Friendly",
-  "token-factions.setting.friendlyColor.hint": " ",
+  "token-factions.setting.friendlyColor.name": "Friendly",
+  "token-factions.setting.friendlyColor.hint": "Inner and outer ring color for friendly tokens.",
 
-  "token-factions.setting.friendlyColorEx.name": "Color: Friendly External",
-  "token-factions.setting.friendlyColorEx.hint": " ",
+  "token-factions.setting.friendlyColorEx.name": "Friendly: outer",
+  "token-factions.setting.friendlyColorEx.hint": "Outer edge of the friendly ring.",
 
-  "token-factions.setting.neutralColor.name": "Color: Neutral",
-  "token-factions.setting.neutralColor.hint": " ",
+  "token-factions.setting.neutralColor.name": "Neutral",
+  "token-factions.setting.neutralColor.hint": "Inner and outer ring color for neutral tokens.",
 
-  "token-factions.setting.neutralColorEx.name": "Color: Neutral External",
-  "token-factions.setting.neutralColorEx.hint": " ",
+  "token-factions.setting.neutralColorEx.name": "Neutral: outer",
+  "token-factions.setting.neutralColorEx.hint": "Outer edge of the neutral ring.",
 
-  "token-factions.setting.partyColor.name": "Color: Party",
-  "token-factions.setting.partyColor.hint": " ",
+  "token-factions.setting.partyColor.name": "Party",
+  "token-factions.setting.partyColor.hint": "Inner and outer ring color for player-owned tokens.",
 
-  "token-factions.setting.partyColorEx.name": "Color: Party External",
-  "token-factions.setting.partyColorEx.hint": " ",
+  "token-factions.setting.partyColorEx.name": "Party: outer",
+  "token-factions.setting.partyColorEx.hint": "Outer edge of the party ring.",
 
-  "token-factions.setting.actorFolderColorEx.name": "Color: Actor Folder External",
-  "token-factions.setting.actorFolderColorEx.hint": " ",
+  "token-factions.setting.actorFolderColorEx.name": "Folder colors: outer",
+  "token-factions.setting.actorFolderColorEx.hint": "Outer edge when the ring takes the folder color.",
 
   "token-factions.setting.overrideBorderGraphic.name": "Override the graphic of the border default token",
   "token-factions.setting.overrideBorderGraphic.hint": "This will not work with 'Border Control' module active",
@@ -133,12 +149,12 @@
   "token-factions.label.applyCustomColor": "Apply custom color",
   "token-factions.label.doNothing": "Do nothing",
 
-  "token-factions.setting.reset.name": "Reset settings to default",
-  "token-factions.setting.reset.label": "Reset Settings To Default",
-  "token-factions.setting.reset.hint": "This will reset all of the settings of back to the active game system's default.",
-  "token-factions.setting.debug.name": "Enable debugging",
+  "token-factions.setting.reset.name": "Reset settings",
+  "token-factions.setting.reset.label": "Reset",
+  "token-factions.setting.reset.hint": "Restores every setting on this page to its default.",
+  "token-factions.setting.debug.name": "Debug logging",
   "token-factions.setting.debug.label": "Prints debug messages to the console",
-  "token-factions.setting.debug.hint": " ",
+  "token-factions.setting.debug.hint": "Prints debug messages to the console.",
 
   "token-factions.dialogs.resetsettings.title": "Reset Module Settings",
   "token-factions.dialogs.resetsettings.content": "Are you sure you want to reset all of the module settings to the current system's defaults? <strong>THIS CANNOT BE UNDONE!</strong>",

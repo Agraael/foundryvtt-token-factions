@@ -1,248 +1,121 @@
-<form autocomplete="off">
-    <h2>Teams</h2>
-    <p class="notes">Define the teams available in your world.</p>
-    <div class="teams-list">
-        <table>
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Color (Int)</th>
-                    <th>Color (Ext)</th>
-                    <th>GM Disp</th>
-                    <th><a class="add-team"><i class="fas fa-plus"></i> Add</a></th>
-                </tr>
-            </thead>
-            <tbody>
-                {{#each teams}}
-                <tr>
-                    <td>
-                        <input type="hidden" name="teams.{{@index}}.id" value="{{this.id}}">
-                        <input type="text" name="teams.{{@index}}.name" value="{{this.name}}">
-                    </td>
-                    <td>
-                        <input type="color" name="teams.{{@index}}.color" value="{{this.color}}">
-                    </td>
-                    <td>
-                        <input type="color" name="teams.{{@index}}.colorEx" value="{{this.colorEx}}">
-                    </td>
-                    <td>
-                        <select name="teams.{{@index}}.gmDisposition" class="disposition-select"
-                            data-value="{{this.gmDisposition}}">
-                            {{selectOptions @root.dispositionOptions selected=this.gmDisposition}}
-                        </select>
-                    </td>
-                    <td>
-                        <a class="remove-team" data-index="{{@index}}"><i class="fas fa-trash"></i></a>
-                    </td>
-                </tr>
+<div class="tf-root" style="{{dispositionColors}}">
+    {{#unless teamsEnabled}}
+    <div class="tf-off-banner">
+        <i class="fa-solid fa-circle-info"></i>
+        <p><strong>Advanced teams is off.</strong> No token has a team: borders, reactions, overwatch, auras and the tracker use token disposition. You can still prepare teams here.</p>
+        <button type="button" data-action="turnOnTeams">Turn on</button>
+    </div>
+    {{/unless}}
+    <div class="tf-grid">
+        <aside class="tf-side">
+            <div class="tf-side-head">
+                <h3>Teams</h3>
+                <button type="button" class="tf-small" data-action="addTeam"><i class="fa-solid fa-plus"></i> Add</button>
+            </div>
+            <ul class="tf-team-list">
+                {{#each list}}
+                <li class="tf-team-item{{#if selected}} selected{{/if}}" data-team-id="{{id}}">
+                    <span class="tf-grip" data-grip><i class="fa-solid fa-grip-vertical"></i></span>
+                    <button type="button" class="tf-team-pick" data-action="selectTeam" data-team-id="{{id}}">
+                        <span class="tf-chip" data-chip-of="{{id}}" style="--ci: {{color}}; --ce: {{colorEx}};"></span>
+                        <span class="tf-name" data-name-of="{{id}}">{{name}}</span>
+                        <span class="tf-pill tf-sm tf-{{def.key}}">{{def.short}}</span>
+                    </button>
+                    <span class="tf-stance">{{#each stance}}<span class="tf-{{key}}" style="flex-grow: {{count}};"></span>{{/each}}</span>
+                </li>
                 {{/each}}
-            </tbody>
-        </table>
-    </div>
-
-    <div class="matrix-toolbar">
-        <h2 style="margin: 0;">Disposition Matrix</h2>
-        <label class="matrix-toggle">
-            <input type="checkbox" class="symmetric-toggle" {{#if symmetricView}}checked{{/if}}>
-            Symmetric view
-        </label>
-        <span class="matrix-hint">click cycles F → N → H → S, right-click reverses. Click a header to set the whole row/column.</span>
-    </div>
-
-    <div class="matrix-scroll {{#if symmetricView}}matrix-symmetric{{/if}}">
-        <table class="matrix">
-            <thead>
-                <tr>
-                    <th class="matrix-corner">Target \ Viewer</th>
-                    {{#each teams}}
-                    <th class="col-header" data-col-id="{{this.id}}" data-col-idx="{{@index}}"
-                        style="color: {{this.color}}" title="Set how everyone views {{this.name}}">{{this.name}}</th>
-                    {{/each}}
-                </tr>
-            </thead>
-            <tbody>
-                {{#each matrixRows as |row|}}
-                <tr data-row-id="{{row.team.id}}" data-row-idx="{{row.rowIdx}}">
-                    <th class="row-header" data-row-id="{{row.team.id}}" data-row-idx="{{row.rowIdx}}"
-                        style="color: {{row.team.color}}" title="Set {{row.team.name}}'s view of everyone">{{row.team.name}}</th>
-                    {{#each row.cells as |cell|}}
-                    <td class="matrix-cell {{#if cell.isLower}}is-lower{{/if}} {{#if cell.isDiagonal}}is-diagonal{{/if}}"
-                        data-row-id="{{cell.rowId}}" data-col-id="{{cell.colId}}"
-                        data-row-idx="{{cell.rowIdx}}" data-col-idx="{{cell.colIdx}}">
-                        <button type="button" class="disp-cell" data-value="{{cell.value}}"
-                            data-row-id="{{cell.rowId}}" data-col-id="{{cell.colId}}">{{cell.glyph}}</button>
-                        <input type="hidden" name="matrix.{{cell.rowId}}.{{cell.colId}}" value="{{cell.value}}">
-                    </td>
-                    {{/each}}
-                </tr>
+            </ul>
+        </aside>
+        <section class="tf-main">
+            {{#if selected}}
+            <div class="tf-team-head">
+                <figure class="tf-preview">
+                    <svg viewBox="0 0 80 80" aria-hidden="true">
+                        <polygon class="tf-preview-bg" points="40,6 69.44,23 69.44,57 40,74 10.56,57 10.56,23"></polygon>
+                        <polygon points="40,6 69.44,23 69.44,57 40,74 10.56,57 10.56,23" fill="none" stroke="{{selected.colorEx}}" stroke-opacity="0.8" stroke-width="6" stroke-linejoin="round" data-preview="colorEx"></polygon>
+                        <polygon points="40,6 69.44,23 69.44,57 40,74 10.56,57 10.56,23" fill="none" stroke="{{selected.color}}" stroke-width="3" stroke-linejoin="round" data-preview="color"></polygon>
+                    </svg>
+                    <img src="icons/svg/mystery-man.svg" alt="">
+                </figure>
+                <div class="tf-fields">
+                    <div class="tf-field">
+                        <label for="tf-team-name">Name</label>
+                        <input type="text" id="tf-team-name" name="tfTeamName" value="{{selected.name}}" data-team-name>
+                    </div>
+                    <div class="tf-field">
+                        <span class="tf-label">Border</span>
+                        <div class="tf-swatches">
+                            <label><input type="color" name="tfTeamColor" value="{{selected.color}}" data-team-color="color"> Inner</label>
+                            <label><input type="color" name="tfTeamColorEx" value="{{selected.colorEx}}" data-team-color="colorEx"> Outer</label>
+                        </div>
+                    </div>
+                    <div class="tf-field">
+                        <span class="tf-label">Default <i class="fa-solid fa-circle-question tf-help" data-tooltip="Set on tokens when you assign this team. Also your view as GM with no token selected."></i></span>
+                        <div class="tf-seg">
+                            {{#each selected.defaults}}
+                            <button type="button" class="tf-{{key}}{{#if on}} on{{/if}}" data-action="setDefault" data-value="{{value}}" aria-pressed="{{on}}">{{label}}</button>
+                            {{/each}}
+                        </div>
+                    </div>
+                    <div class="tf-field">
+                        <span class="tf-label">Members <i class="fa-solid fa-circle-question tf-help" data-tooltip="How tokens on this team see each other."></i></span>
+                        <div class="tf-seg">
+                            {{#each selected.members}}
+                            <button type="button" class="tf-{{key}}{{#if on}} on{{/if}}" data-action="setMembers" data-value="{{value}}" aria-pressed="{{on}}">{{label}}</button>
+                            {{/each}}
+                        </div>
+                    </div>
+                </div>
+                <div class="tf-delete">
+                    {{#if selected.pendingDelete}}
+                    <div class="tf-confirm">
+                        <p>Delete <strong>{{selected.name}}</strong>? It is cleared from every actor and token when you save.</p>
+                        <div class="tf-confirm-buttons">
+                            <button type="button" class="tf-small tf-danger" data-action="confirmDelete">Delete</button>
+                            <button type="button" class="tf-small" data-action="cancelDelete">Keep</button>
+                        </div>
+                    </div>
+                    {{else}}
+                    <button type="button" class="tf-small tf-danger-text" data-action="deleteTeam"><i class="fa-solid fa-trash"></i> Delete</button>
+                    {{/if}}
+                </div>
+            </div>
+            <div class="tf-rel-head">
+                <h3><span data-name-of="{{selected.id}}">{{selected.name}}</span> sees</h3>
+                <button type="button" class="tf-toggle{{#if mirror}} on{{/if}}" data-action="toggleMirror" aria-pressed="{{mirror}}"><i class="fa-solid fa-arrow-right-arrow-left"></i> Mirror pairs</button>
+            </div>
+            <p class="tf-hint">Drag a team into Friendly, Neutral, Hostile or Secret, or click it and then click the box.</p>
+            <div class="tf-lanes{{#if picking}} picking{{/if}}">
+                {{#each lanes}}
+                <div class="tf-lane tf-{{key}}" data-lane="{{value}}" data-action="dropOnLane">
+                    <div class="tf-lane-head">
+                        <span class="tf-pill tf-{{key}}">{{label}}</span>
+                        <span class="tf-count">{{countLabel}}</span>
+                        <button type="button" class="tf-link" data-action="setAll" data-value="{{value}}">Set all</button>
+                    </div>
+                    <div class="tf-lane-chips">
+                        {{#each chips}}
+                        <button type="button" class="tf-team-chip{{#if picked}} picked{{/if}}" id="tf-chip-{{id}}" draggable="true" data-action="pickChip" data-team-id="{{id}}">
+                            <span class="tf-chip" data-chip-of="{{id}}" style="--ci: {{color}}; --ce: {{colorEx}};"></span>
+                            <span data-name-of="{{id}}">{{name}}</span>
+                            {{#if back}}<span class="tf-back tf-{{back.key}}">↩ {{back.short}}</span>{{/if}}
+                        </button>
+                        {{else}}
+                        <span class="tf-empty">Drop here</span>
+                        {{/each}}
+                    </div>
+                </div>
                 {{/each}}
-            </tbody>
-        </table>
+            </div>
+            {{#if anyOneWay}}
+            <p class="tf-hint"><span class="tf-back tf-h">↩ H</span> marks a team that sees <span data-name-of="{{selected.id}}">{{selected.name}}</span> differently.</p>
+            {{/if}}
+            {{else}}
+            <p class="tf-hint">No teams yet. Add one to start.</p>
+            {{/if}}
+        </section>
     </div>
-
-    <button type="submit"><i class="fas fa-save"></i> Save Changes</button>
-</form>
-
-<style>
-    /* Scrollable Team List */
-    .teams-list {
-        max-height: 200px;
-        overflow-y: auto;
-        border: 1px solid #787878;
-        background: rgba(0, 0, 0, 0.2);
-        margin-bottom: 20px;
-        position: relative;
-    }
-    .teams-list table { border-collapse: separate; border-spacing: 0; width: 100%; }
-    .teams-list thead th {
-        position: sticky; top: 0;
-        background: #333;
-        z-index: 10;
-        padding: 5px;
-        border-bottom: 1px solid #787878;
-    }
-
-    /* Matrix toolbar */
-    .matrix-toolbar {
-        display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-        margin: 8px 0 6px;
-    }
-    .matrix-toggle { display: flex; align-items: center; gap: 4px; font-size: 0.9em; cursor: pointer; }
-    .matrix-hint { font-size: 0.78em; opacity: 0.65; }
-
-    /* Scroll container with sticky headers */
-    .matrix-scroll {
-        max-height: 60vh;
-        overflow: auto;
-        border: 1px solid #555;
-        background: rgba(0, 0, 0, 0.15);
-    }
-    .matrix {
-        font-size: 0.85em;
-        border-collapse: separate;
-        border-spacing: 0;
-    }
-    .matrix th, .matrix td {
-        text-align: center;
-        padding: 0;
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        background-clip: padding-box;
-    }
-
-    /* Sticky row headers */
-    .matrix tbody th {
-        position: sticky; left: 0;
-        background: #2c2c2c;
-        z-index: 5;
-        text-align: right;
-        padding: 0 8px;
-        white-space: nowrap;
-        cursor: pointer;
-    }
-    .matrix tbody th:hover { background: #3d3d3d; }
-
-    /* Sticky column headers */
-    .matrix thead th {
-        position: sticky; top: 0;
-        background: #2c2c2c;
-        z-index: 6;
-        writing-mode: vertical-rl;
-        transform: rotate(180deg);
-        white-space: nowrap;
-        height: 120px;
-        vertical-align: bottom;
-        padding: 5px 2px;
-        cursor: pointer;
-    }
-    .matrix thead th:hover { background: #3d3d3d; }
-    .matrix thead th.matrix-corner {
-        position: sticky; left: 0; top: 0;
-        z-index: 8;
-        background: #1f1f1f;
-        writing-mode: initial; transform: none;
-        height: auto;
-        text-align: center;
-        cursor: default;
-        font-weight: bold;
-        opacity: 0.7;
-    }
-
-    /* Hover crosshair */
-    .matrix tbody tr.row-hovered > td,
-    .matrix tbody tr.row-hovered > th { background-color: rgba(255, 200, 80, 0.10); }
-    .matrix .col-hovered { background-color: rgba(255, 200, 80, 0.10); }
-    .matrix tbody tr.row-hovered > th { background-color: rgba(255, 200, 80, 0.18); }
-
-    /* Disposition cell button */
-    .disp-cell {
-        width: 28px; height: 28px;
-        line-height: 1;
-        padding: 0;
-        margin: 0;
-        border: none;
-        background: transparent;
-        font-weight: 900;
-        font-size: 1em;
-        cursor: pointer;
-        text-shadow: 1px 1px 2px #000;
-        transition: background 80ms;
-    }
-    .disp-cell:hover { background: rgba(255, 255, 255, 0.10); }
-    .disp-cell[data-value="1"]  { color: #43dfdf; }
-    .disp-cell[data-value="0"]  { color: #f0f0e0; }
-    .disp-cell[data-value="-1"] { color: #ff6666; }
-    .disp-cell[data-value="-2"] { color: #d0a0ff; }
-
-    .matrix-cell.is-diagonal { background: rgba(255, 255, 255, 0.04); }
-
-    /* Symmetric view: hide lower triangle */
-    .matrix-scroll.matrix-symmetric .matrix-cell.is-lower { visibility: hidden; }
-    .matrix-scroll.matrix-symmetric .matrix-cell.is-lower .disp-cell { pointer-events: none; }
-
-    /* Header set-all popup */
-    .header-setall-menu {
-        position: absolute;
-        background: #1f1f1f;
-        border: 1px solid #888;
-        border-radius: 4px;
-        padding: 4px;
-        z-index: 100;
-        display: flex; gap: 2px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-    }
-    .header-setall-menu button {
-        width: 28px; height: 28px;
-        line-height: 1;
-        padding: 0;
-        border: 1px solid #555;
-        background: #2c2c2c;
-        font-weight: 900;
-        cursor: pointer;
-        text-shadow: 1px 1px 2px #000;
-    }
-    .header-setall-menu button:hover { background: #3d3d3d; }
-    .header-setall-menu button[data-value="1"]  { color: #43dfdf; }
-    .header-setall-menu button[data-value="0"]  { color: #f0f0e0; }
-    .header-setall-menu button[data-value="-1"] { color: #ff6666; }
-    .header-setall-menu button[data-value="-2"] { color: #d0a0ff; }
-
-    /* Keep the existing select styles for the gmDisposition selector in the teams table */
-    .disposition-select {
-        text-align: center;
-        border: none;
-        background: transparent;
-        font-weight: bold;
-        width: 100%;
-        height: 100%;
-        cursor: pointer;
-        text-shadow: 1px 1px 2px #000;
-    }
-    .disposition-select[data-value="1"]  { color: #43dfdf; }
-    .disposition-select[data-value="0"]  { color: #f0f0e0; }
-    .disposition-select[data-value="-1"] { color: #ff6666; }
-    .disposition-select[data-value="-2"] { color: #d0a0ff; }
-    option[value="1"]  { color: #43dfdf; background: #333; }
-    option[value="0"]  { color: #f0f0e0; background: #333; }
-    option[value="-1"] { color: #ff6666; background: #333; }
-    option[value="-2"] { color: #d0a0ff; background: #333; }
-</style>
+    <footer class="tf-footer">
+        <button type="submit"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+    </footer>
+</div>
