@@ -35,7 +35,7 @@ const CONSTANTS = Object.freeze({
     HOVER_DISPOSITION_VISIBILITY: "always",
     HOVER_BRIGHTNESS: 0,
     BASE_OPACITY: 0.5,
-    FILL_TEXTURE: true,
+    FILL_TEXTURE: false,
     FRAME_STYLE: "flat",
     FRAME_OPACITY: 1,
     REMOVE_BORDERS: "0",
