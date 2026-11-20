@@ -636,11 +636,7 @@ function _factionFlagState(token) {
 }
 __name(_factionFlagState, "_factionFlagState");
 function _isAnyCombatActive() {
-  if (game.combat) return true;
-  const active = game.combats?.active;
-  if (active) return true;
-  const any = game.combats?.contents?.some?.(c => c.active);
-  return !!any;
+  return !!game.combats?.contents?.some?.(combat => combat.active);
 }
 __name(_isAnyCombatActive, "_isAnyCombatActive");
 function _factionResolveState(state) {
@@ -668,7 +664,7 @@ function _isHoverDispositionVisible() {
   catch { return true; }
   if (mode === "always") return true;
   if (mode === "never") return false;
-  const inCombat = !!game.combat?.started;
+  const inCombat = !!game.combats?.contents?.some?.(combat => combat.active && combat.started);
   const hasControlled = (canvas?.tokens?.controlled?.length ?? 0) > 0;
   if (mode === "combat") return inCombat;
   if (mode === "controlling") return hasControlled;
@@ -1153,6 +1149,7 @@ const _TokenFaction = class _TokenFaction {
       return;
     }
     Logger.debug("Updating token %s", this.token.document.name);
+    this.drawnVisible = this.token.visible;
     drawBorderFaction(this.token);
   }
   createTokenContainer() {
@@ -1198,7 +1195,8 @@ const _TokenFactions = class _TokenFactions {
   static setupTokens(canvas2) {
     Logger.debug("Setup tokens");
     canvas2.tokens.placeables.forEach((token) => {
-      _TokenFactions.setupFactionForToken(token);
+      if (token.faction) token.faction.updateToken();
+      else _TokenFactions.setupFactionForToken(token);
     });
   }
   static updateTokenFolder(tokenFolder) {
@@ -2036,7 +2034,7 @@ const initHooks = /* @__PURE__ */ __name(async () => {
   });
   Hooks.on("refreshToken", (token, options) => {
     if (token.faction) {
-      if (options.refreshBorder || options.refreshVisibility) {
+      if (options.refreshBorder || options.refreshState || (options.refreshVisibility && token.faction.drawnVisible !== token.visible)) {
         token.faction.updateToken();
       }
     }

@@ -742,13 +742,14 @@
 
 .tf-tab .tf-seg {
   display: inline-flex;
+  flex: none;
   width: max-content;
   overflow: hidden;
   border: 1px solid var(--tf-line);
   border-radius: 4px;
 }
 
-.tf-tab .tf-seg button {
+.tf-tab .tf-seg button:not(#tf-seg) {
   width: auto;
   padding: 0 0.75rem;
   border: none;
@@ -759,11 +760,11 @@
   white-space: nowrap;
 }
 
-.tf-tab .tf-seg button:last-child {
+.tf-tab .tf-seg button:not(#tf-seg):last-child {
   border-right: none;
 }
 
-.tf-tab .tf-seg button.on {
+.tf-tab .tf-seg button.on:not(#tf-seg) {
   background: color-mix(in srgb, var(--tf-focus) 22%, transparent);
   font-weight: 600;
 }
